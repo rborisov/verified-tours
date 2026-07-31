@@ -6,6 +6,16 @@ import { requireAdmin } from "@/lib/require-admin";
 import { prisma } from "@/lib/db";
 import { OfferActions } from "./offer-actions";
 
+function shortUrl(url: string) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.length > 40 ? `${u.pathname.slice(0, 40)}…` : u.pathname;
+    return `${u.hostname}${path}`;
+  } catch {
+    return url.slice(0, 60);
+  }
+}
+
 export default async function AdminOffersPage() {
   await requireAdmin();
   const offers = await prisma.offer.findMany({
@@ -31,56 +41,68 @@ export default async function AdminOffersPage() {
         />
         <section className="hero-page">
           <h1>Офферы</h1>
-          <p>Подтвердите или отклоните кандидатов агента.</p>
+          <p>
+            Откройте ссылку на тур, сверьте город/даты/цену на странице, затем подтвердите или
+            отклоните.
+          </p>
         </section>
         <section className="section">
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Статус</th>
-                <th>Отель</th>
-                <th>Вылет / даты</th>
-                <th>Цена</th>
-                <th>Авто</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
+          {offers.length === 0 ? (
+            <p className="muted">Пока нет кандидатов.</p>
+          ) : (
+            <ul className="offer-review">
               {offers.map((o) => (
-                <tr key={o.id}>
-                  <td>{o.status}</td>
-                  <td>
-                    <a href={o.deepLink} target="_blank" rel="noreferrer">
-                      {o.hotelName}
-                    </a>
-                    <div className="muted">
-                      {o.source} · {o.country}
+                <li key={o.id} className="offer-review-item">
+                  <div className="offer-review-main">
+                    <div className="offer-review-title">
+                      <span className={`offer-status offer-status-${o.status}`}>{o.status}</span>
+                      <strong>{o.hotelName}</strong>
                     </div>
-                  </td>
-                  <td>
-                    {o.fromCity}
-                    <div className="muted">
+                    <p className="muted">
+                      {o.source} · {o.country}
+                      {o.resort ? ` · ${o.resort}` : ""} · {o.fromCity} ·{" "}
                       {o.startDate.toISOString().slice(0, 10)} · {o.nights}н · {o.adults}+
                       {o.childrenAges || "0"}
-                    </div>
-                  </td>
-                  <td>
-                    {o.pagePriceRub?.toLocaleString("ru-RU")} ₽
-                    {o.priceDriftPct != null ? (
-                      <div className="muted">drift {o.priceDriftPct.toFixed(1)}%</div>
+                    </p>
+                    <p>
+                      Страница:{" "}
+                      <strong>{o.pagePriceRub?.toLocaleString("ru-RU") ?? "—"} ₽</strong>
+                      {o.listingPriceRub != null ? (
+                        <span className="muted">
+                          {" "}
+                          · листинг {o.listingPriceRub.toLocaleString("ru-RU")} ₽
+                        </span>
+                      ) : null}
+                      {o.priceDriftPct != null ? (
+                        <span className="muted"> · drift {o.priceDriftPct.toFixed(1)}%</span>
+                      ) : null}
+                      {o.autoLevel ? <span className="muted"> · {o.autoLevel}</span> : null}
+                    </p>
+                    {o.autoNotes ? <p className="muted">{o.autoNotes}</p> : null}
+                    {o.rejectReason ? (
+                      <p className="muted">Причина: {o.rejectReason}</p>
                     ) : null}
-                  </td>
-                  <td>
-                    {o.autoLevel}
-                    {o.rejectReason ? <div className="muted">{o.rejectReason}</div> : null}
-                  </td>
-                  <td>
+                    <p className="offer-link-line">
+                      <a href={o.deepLink} target="_blank" rel="noreferrer" className="offer-deep-link">
+                        {shortUrl(o.deepLink)}
+                      </a>
+                    </p>
+                  </div>
+                  <div className="row-actions">
+                    <a
+                      className="btn btn-primary"
+                      href={o.deepLink}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Открыть тур
+                    </a>
                     {o.status === "pending_human" ? <OfferActions offerId={o.id} /> : null}
-                  </td>
-                </tr>
+                  </div>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          )}
         </section>
       </main>
     </div>

@@ -608,6 +608,56 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  align-items: center;
+}
+
+.offer-review {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.offer-review-item {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.offer-review-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin-bottom: 0.25rem;
+}
+
+.offer-status {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.offer-status-pending_human {
+  color: var(--accent, #0b6e6e);
+  font-weight: 700;
+}
+
+.offer-link-line {
+  margin: 0.35rem 0 0;
+}
+
+.offer-deep-link {
+  word-break: break-all;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.offer-deep-link:hover {
+  color: var(--accent, #0b6e6e);
 }
 
 @media (max-width: 700px) {

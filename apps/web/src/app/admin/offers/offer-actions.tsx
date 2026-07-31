@@ -21,13 +21,13 @@ export function OfferActions({ offerId }: { offerId: string }) {
   }
 
   return (
-    <div className="row-actions">
-      <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void act("verify")}>
+    <>
+      <button className="btn" type="button" disabled={busy} onClick={() => void act("verify")}>
         Подтвердить
       </button>
       <button className="btn" type="button" disabled={busy} onClick={() => void act("reject")}>
         Отклонить
       </button>
-    </div>
+    </>
   );
 }
