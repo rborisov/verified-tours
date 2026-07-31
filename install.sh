@@ -20,8 +20,9 @@ SWAP_SIZE_GB=2
 # Peak for npm ci + next build on this monorepo (~1.5–2.0 GiB) + headroom.
 MIN_FREE_BUILD_MB=2200
 # After reclaim, refuse below this — build will almost certainly fail.
-MIN_FREE_HARD_MB=1800
+MIN_FREE_HARD_MB=1650
 SIBLING_BUILD_ROOT=/var/tmp/newsdigest-build
+SIBLING_INSTALL_ROOT=/opt/newsdigest
 
 ensure_data_dirs() {
   mkdir -p "${DATA_DIR}/logs"
@@ -123,9 +124,31 @@ reclaim_disk_space() {
   log "Reclaiming disk before build (10G hosts with newsdigest need this)"
   apt-get clean >/dev/null 2>&1 || true
   rm -rf /var/cache/apt/archives/*.deb 2>/dev/null || true
-  journalctl --vacuum-size=40M >/dev/null 2>&1 || true
+  DEBIAN_FRONTEND=noninteractive apt-get autoremove -y -qq >/dev/null 2>&1 || true
+  journalctl --vacuum-size=20M >/dev/null 2>&1 || true
+  find /var/log -type f \( -name '*.gz' -o -name '*.old' -o -name '*.1' \) -delete 2>/dev/null || true
   npm cache clean --force >/dev/null 2>&1 || true
-  rm -rf /root/.npm/_cacache 2>/dev/null || true
+  rm -rf /root/.npm/_cacache /root/.cache/yarn /root/.cache/node-gyp 2>/dev/null || true
+  # Cursor CLI / agent caches on the host (safe to rebuild).
+  rm -rf /root/.cursor/projects/*/agent-transcripts 2>/dev/null || true
+  find /tmp /var/tmp -maxdepth 1 -type f -mtime +2 -delete 2>/dev/null || true
+
+  # Agent job logs grow fast — keep last 5 files per workspace.
+  prune_agent_logs() {
+    local dir="$1"
+    [[ -d "${dir}" ]] || return 0
+    local count
+    count="$(find "${dir}" -type f | wc -l | tr -d ' ')"
+    if [[ "${count}" -gt 5 ]]; then
+      log "Pruning old agent logs in ${dir} (${count} files → keep 5)"
+      # shellcheck disable=SC2012
+      ls -1t "${dir}"/* 2>/dev/null | tail -n +6 | xargs -r rm -f
+    fi
+  }
+  prune_agent_logs "${WORKSPACE_DIR}/logs"
+  prune_agent_logs "${SIBLING_INSTALL_ROOT}/workspace/logs"
+  prune_agent_logs "${SIBLING_INSTALL_ROOT}/data/logs"
+  prune_agent_logs "${DATA_DIR}/logs"
 
   # Drop our own previous heavy build artifacts (git kept for shallow fetch).
   if [[ -d "${BUILD_ROOT}" ]]; then
@@ -134,6 +157,8 @@ reclaim_disk_space() {
       "${BUILD_ROOT}/node_modules" \
       "${BUILD_ROOT}/apps/web/node_modules" \
       "${BUILD_ROOT}/apps/web/.next" \
+      "${BUILD_ROOT}/apps/worker/node_modules" \
+      "${BUILD_ROOT}/apps/mcp-server/node_modules" \
       "${BUILD_ROOT}/apps/worker/dist" \
       "${BUILD_ROOT}/apps/mcp-server/dist" \
       "${BUILD_ROOT}/.install-npm-hash" \
@@ -149,6 +174,7 @@ reclaim_disk_space() {
       log "Freeing sibling build cache (newsdigest runtime under /opt/newsdigest is untouched)"
       rm -rf \
         "${SIBLING_BUILD_ROOT}/node_modules" \
+        "${SIBLING_BUILD_ROOT}/apps/web/node_modules" \
         "${SIBLING_BUILD_ROOT}/apps/web/.next" \
         "${SIBLING_BUILD_ROOT}/.install-npm-hash" \
         "${SIBLING_BUILD_ROOT}/.install-build-rev" 2>/dev/null || true
@@ -158,6 +184,19 @@ reclaim_disk_space() {
         rm -rf "${SIBLING_BUILD_ROOT}"
       fi
     fi
+  fi
+
+  # Last resort: wipe our build tree entirely (shallow clone again on next step).
+  if [[ "$(disk_avail_mb)" -lt "${MIN_FREE_HARD_MB}" && -d "${BUILD_ROOT}" ]]; then
+    log "Still below hard floor — removing entire ${BUILD_ROOT}"
+    rm -rf "${BUILD_ROOT}"
+  fi
+
+  # Snap revisions can waste hundreds of MiB on tiny disks.
+  if command -v snap >/dev/null 2>&1; then
+    snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read -r snapname revision; do
+      snap remove "${snapname}" --revision="${revision}" >/dev/null 2>&1 || true
+    done
   fi
 
   log_disk

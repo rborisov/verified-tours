@@ -55,7 +55,7 @@ MCP (Cursor `mcp.json` example):
 
 **Disk:** a 10 GB VPS with newsdigest already at ~80% full is **too tight** for a naive second build (`npm ci` + `next build` peaks ~2.2 GiB free). `install.sh` now:
 
-1. Checks free space (wants ≥ 2200 MiB, hard floor 1800 MiB)
+1. Checks free space (wants ≥ 2200 MiB, hard floor 1650 MiB) and reclaims build caches / logs
 2. Reclaims apt/journal/npm cache and prunes `/var/tmp/newsdigest-build` if needed (runtime `/opt/newsdigest` untouched)
 3. After staging, prunes `/var/tmp/verified-tours-build` heavy artifacts
 
