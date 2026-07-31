@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ResortBackdrop } from "@/app/resort-backdrop";
 import { SiteHeader } from "@/app/site-header";
+import { deepLinkRejectionReason } from "@/lib/deep-link";
 import { requireAdmin } from "@/lib/require-admin";
 import { prisma } from "@/lib/db";
 import { OfferActions } from "./offer-actions";
@@ -51,7 +52,9 @@ export default async function AdminOffersPage() {
             <p className="muted">Пока нет кандидатов.</p>
           ) : (
             <ul className="offer-review">
-              {offers.map((o) => (
+              {offers.map((o) => {
+                const linkProblem = deepLinkRejectionReason(o.deepLink);
+                return (
                 <li key={o.id} className="offer-review-item">
                   <div className="offer-review-main">
                     <div className="offer-review-title">
@@ -82,6 +85,11 @@ export default async function AdminOffersPage() {
                     {o.rejectReason ? (
                       <p className="muted">Причина: {o.rejectReason}</p>
                     ) : null}
+                    {linkProblem ? (
+                      <p className="offer-link-warn">
+                        Ссылка — список поиска, не страница отеля. Отклоните и перезапустите поиск.
+                      </p>
+                    ) : null}
                     <p className="offer-link-line">
                       <a href={o.deepLink} target="_blank" rel="noreferrer" className="offer-deep-link">
                         {shortUrl(o.deepLink)}
@@ -100,7 +108,8 @@ export default async function AdminOffersPage() {
                     {o.status === "pending_human" ? <OfferActions offerId={o.id} /> : null}
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </section>

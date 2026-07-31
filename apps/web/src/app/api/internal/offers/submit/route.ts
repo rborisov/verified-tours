@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { offerFingerprint } from "@/lib/agent";
+import { deepLinkRejectionReason } from "@/lib/deep-link";
 import { prisma } from "@/lib/db";
 import { requireInternalApi } from "@/lib/require-internal";
 
@@ -42,6 +43,11 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  const badLink = deepLinkRejectionReason(data.deepLink);
+  if (badLink) {
+    return NextResponse.json({ error: badLink, deepLink: data.deepLink }, { status: 422 });
+  }
+
   const fingerprint = offerFingerprint({
     source: data.source,
     hotelId: data.hotelId,

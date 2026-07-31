@@ -188,11 +188,19 @@ ${input.rawBrief ? `raw brief:\\n${input.rawBrief}\\n` : ""}
 
 MUST:
 1) Call MCP lookup_verified_offers first (reuse verified; avoid rejected fingerprints).
-2) Search multiple RU package OTAs (not only Level.Travel).
-3) Open hotel package page; confirm departure city + dates + party + flight price.
-4) If city wrong OR price drift >15% → mark_offer_rejected_auto (do not publish).
-5) Otherwise submit_offer_candidate (pending_human). Max 5 candidates.
-6) Call finish_search_job when done.
+2) Search multiple RU package OTAs (Level.Travel, Travelata, Onlinetours, SaleTur, etc.).
+3) From search RESULTS, open the specific HOTEL / package page (not the list).
+4) On that hotel page confirm departure city + dates + party + flight price (L2/L3).
+5) If city wrong OR price drift >15% → mark_offer_rejected_auto (do not publish).
+6) Otherwise submit_offer_candidate with deepLink = URL of that hotel/package page. Max 5.
+7) Call finish_search_job when done.
 
-Human will do final verification in admin UI.`;
+deepLink RULES (enforced by API — listing URLs are rejected):
+- MUST open one hotel/tour page where admin can verify city/dates/price.
+- NEVER submit a search results / country list URL.
+- BAD SaleTur: https://saletur.ru/Турция/#&query={...}  (country list)
+- GOOD SaleTur: https://saletur.ru/Турция/Анталья/hotel/Hotel_Name.htm
+- Prefer OTAs that give stable hotel URLs (Level.Travel /hotels/..., Travelata hotel pages).
+
+Human will do final verification in admin UI via the deepLink.`;
 }

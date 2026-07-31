@@ -65,7 +65,7 @@ function createServer(): McpServer {
     "submit_offer_candidate",
     {
       description:
-        "Submit an L2/L3-verified package offer for human confirmation (status pending_human). Rejects if listing vs page price drift >15%.",
+        "Submit an L2/L3-verified package offer for human confirmation (status pending_human). deepLink MUST be the hotel/package page URL (not a search results list). SaleTur lists like /Турция/#&query=… are rejected — use /…/hotel/Name.htm. Also rejects listing vs page price drift >15%.",
       inputSchema: {
         jobId: z.string().min(1),
         requestId: z.string().optional(),
@@ -74,7 +74,12 @@ function createServer(): McpServer {
         hotelId: z.string().optional().nullable(),
         country: z.string().min(1),
         resort: z.string().optional().nullable(),
-        deepLink: z.string().url(),
+        deepLink: z
+          .string()
+          .url()
+          .describe(
+            "URL of the specific hotel/package page opened for L2/L3 checks. Not a country search list.",
+          ),
         fromCity: z.string().min(1),
         startDate: z.string().min(1),
         endDate: z.string().min(1),

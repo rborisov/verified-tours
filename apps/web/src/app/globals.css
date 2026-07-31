@@ -660,6 +660,12 @@ select {
   color: var(--accent, #0b6e6e);
 }
 
+.offer-link-warn {
+  margin: 0.35rem 0 0;
+  color: #9a3412;
+  font-weight: 600;
+}
+
 @media (max-width: 700px) {
   .search-form {
     grid-template-columns: 1fr;
