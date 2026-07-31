@@ -88,23 +88,30 @@ export function SearchForm() {
         Ночей до
         <input name="nightsMax" type="number" min={1} defaultValue={7} />
       </label>
-      <label className="check">
-        <input name="seaRequired" type="checkbox" defaultChecked /> Море
-      </label>
-      <label className="check">
-        <input name="visaFreeOnly" type="checkbox" defaultChecked /> Без визы
-      </label>
-      <label className="check">
-        <input name="preferHot" type="checkbox" defaultChecked /> Горящие / скидки
-      </label>
+      <div className="checks full">
+        <label className="check">
+          <input name="seaRequired" type="checkbox" defaultChecked />
+          <span>Море</span>
+        </label>
+        <label className="check">
+          <input name="visaFreeOnly" type="checkbox" defaultChecked />
+          <span>Без визы</span>
+        </label>
+        <label className="check">
+          <input name="preferHot" type="checkbox" defaultChecked />
+          <span>Горящие / скидки</span>
+        </label>
+      </div>
       <label className="full">
         Свободный бриф
         <textarea name="rawBrief" rows={3} placeholder="Опционально" />
       </label>
-      <button className="btn btn-primary" type="submit" disabled={busy}>
-        {busy ? "Запуск…" : "Искать с проверкой"}
-      </button>
-      {message ? <p className="muted full">{message}</p> : null}
+      <div className="full">
+        <button className="btn btn-primary" type="submit" disabled={busy}>
+          {busy ? "Запуск…" : "Искать с проверкой"}
+        </button>
+        {message ? <p className="muted" style={{ marginTop: "0.75rem" }}>{message}</p> : null}
+      </div>
     </form>
   );
 }
