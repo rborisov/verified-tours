@@ -12,6 +12,12 @@ function parseAllowedEmails(raw: string | undefined): string[] {
 
 async function main() {
   const emails = parseAllowedEmails(process.env.ALLOWED_EMAILS);
+  if (emails.length === 0) {
+    throw new Error(
+      "ALLOWED_EMAILS is empty or unset. Refusing to seed an empty allowlist — check /opt/verified-tours/.env",
+    );
+  }
+
   for (const email of emails) {
     await prisma.allowedUser.upsert({
       where: { email },
@@ -20,6 +26,12 @@ async function main() {
     });
     console.log(`allowed admin: ${email}`);
   }
+
+  const rows = await prisma.allowedUser.findMany({
+    select: { email: true, isAdmin: true },
+    orderBy: { email: "asc" },
+  });
+  console.log(`allowlist now (${rows.length}): ${rows.map((r) => r.email).join(", ")}`);
 }
 
 main()

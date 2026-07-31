@@ -839,8 +839,10 @@ install_app() {
     source "${INSTALL_ROOT}/.env"
     set +a
     export DATABASE_URL="file:${DATA_DIR}/tours.db"
+    [[ -n "${ALLOWED_EMAILS:-}" ]] || die "ALLOWED_EMAILS empty in ${INSTALL_ROOT}/.env — cannot seed admins."
+    log "ALLOWED_EMAILS=${ALLOWED_EMAILS}"
     npx tsx apps/web/prisma/seed.ts
-  )
+  ) || die "Allowlist seed failed — fix ALLOWED_EMAILS in ${INSTALL_ROOT}/.env and re-run."
 
   local need_build=0
   if [[ ! -f apps/web/.next/standalone/apps/web/server.js ]] \
