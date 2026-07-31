@@ -51,9 +51,10 @@ export default async function HomePage() {
         />
 
         <section className="hero-stage">
-          <p className="hero-brand">Пальма</p>
+          <p className="hero-brand">NoFakeTours</p>
           <p className="hero-lead">
-            Пакетные туры с проверкой города вылета, дат и цены на странице отеля.
+            Реальные пакетные туры: ссылка ведёт на страницу, где видно вылет, даты и
+            цену и можно бронировать — не на пустой список поиска.
           </p>
           <div className="hero-cta">
             {session?.user?.isAdmin ? (
@@ -75,8 +76,8 @@ export default async function HomePage() {
           <section className="section" id="search">
             <h2>Новый поиск</h2>
             <p className="section-lead">
-              Агент ищет по запросу; финальное подтверждение — вручную. Кэш
-              питает следующие поиски.
+              Агент ищет bookable-офферы; вы подтверждаете по ссылке. Кэш питает следующие
+              поиски.
             </p>
             <JobMonitor initialActive={Boolean(activeJob)} />
             <SearchForm disabled={Boolean(activeJob)} />

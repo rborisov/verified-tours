@@ -98,6 +98,12 @@ export function spawnTourAgent(
   const logsDir = path.join(workspace, "logs");
   fs.mkdirSync(logsDir, { recursive: true });
   const logFile = path.join(logsDir, `${jobId}.log`);
+  const promptFile = path.join(logsDir, `${jobId}.prompt.txt`);
+  try {
+    fs.writeFileSync(promptFile, prompt, "utf8");
+  } catch {
+    // best-effort; wrapper still embeds prompt
+  }
 
   const portalUrl = (process.env.PORTAL_URL || "http://127.0.0.1:3001").replace(
     /\/$/,
@@ -109,6 +115,7 @@ export function spawnTourAgent(
 set -euo pipefail
 WORKSPACE=${JSON.stringify(workspace)}
 LOG=${JSON.stringify(logFile)}
+PROMPT_PATH=${JSON.stringify(promptFile)}
 CLI=${JSON.stringify(cli)}
 JOB_ID=${JSON.stringify(jobId)}
 PORTAL=${JSON.stringify(portalUrl)}
@@ -117,8 +124,10 @@ PROMPT_FILE=$(mktemp)
 cat > "$PROMPT_FILE" <<'PROMPT_EOF'
 ${prompt}
 PROMPT_EOF
+cp "$PROMPT_FILE" "$PROMPT_PATH" 2>/dev/null || true
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] starting tour agent job=$JOB_ID" >> "$LOG"
+echo "[prompt] saved to $PROMPT_PATH" >> "$LOG"
 set +e
 "$CLI" -p --force --sandbox disabled --trust --approve-mcps --output-format stream-json --workspace "$WORKSPACE" < "$PROMPT_FILE" >> "$LOG" 2>&1
 CODE=$?
@@ -171,7 +180,9 @@ export function buildTourSearchPrompt(input: {
   preferHot: boolean;
   rawBrief?: string | null;
 }): string {
-  return `MODE: verified_tours
+  return `MODE: nofaketours
+Mission: find REAL bookable package tours. deepLink must open a page where a human can see departure city, dates, party, flight+hotel price AND start booking — not a search list, not a hotel brochure.
+
 jobId: ${input.jobId}
 requestId: ${input.requestId}
 
@@ -188,19 +199,21 @@ ${input.rawBrief ? `raw brief:\\n${input.rawBrief}\\n` : ""}
 
 MUST:
 1) Call MCP lookup_verified_offers first (reuse verified; avoid rejected fingerprints).
-2) Search multiple RU package OTAs (Level.Travel, Travelata, Onlinetours, SaleTur, etc.).
-3) From search RESULTS, open the specific HOTEL / package page (not the list).
-4) On that hotel page confirm departure city + dates + party + flight price (L2/L3).
-5) If city wrong OR price drift >15% → mark_offer_rejected_auto (do not publish).
-6) Otherwise submit_offer_candidate with deepLink = URL of that hotel/package page. Max 5.
-7) Call finish_search_job when done.
+2) Prefer Level.Travel, Travelata, Onlinetours (stable offer/checkout URLs). Avoid SaleTur search/lists.
+3) Use browser: search → click a concrete offer → keep navigating until the BOOKING/offer page shows city+dates+price+buy/book.
+4) Copy the URL FROM THAT BOOKABLE PAGE (address bar after navigation). That is deepLink.
+5) Confirm fromCity matches "${input.fromCity}" (or reject). Confirm dates/nights/party. Compare listing vs page price; drift >15% → mark_offer_rejected_auto.
+6) submit_offer_candidate only with bookable deepLink + autoNotes quoting city, dates, price seen on page. Max 5.
+7) finish_search_job when done (awaiting_human if candidates exist).
 
-deepLink RULES (enforced by API — listing URLs are rejected):
-- MUST open one hotel/tour page where admin can verify city/dates/price.
-- NEVER submit a search results / country list URL.
-- BAD SaleTur: https://saletur.ru/Турция/#&query={...}  (country list)
-- GOOD SaleTur: https://saletur.ru/Турция/Анталья/hotel/Hotel_Name.htm
-- Prefer OTAs that give stable hotel URLs (Level.Travel /hotels/..., Travelata hotel pages).
+deepLink REJECTED by API if:
+- search/results list (e.g. saletur.ru/Турция/#&query=…)
+- hotel brochure without bookable offer (e.g. saletur …/hotel/Name.htm)
+- /search paths without a selected offer
 
-Human will do final verification in admin UI via the deepLink.`;
+GOOD examples (shape): Level.Travel hotel/offer URL that still shows package price & departure; Travelata tour offer page with «Купить».
+BAD: any URL that only shows a grid of hotels with no single selectable bookable package.
+
+If an OTA hides the bookable URL from you, skip that OTA — do not invent or submit the list URL.
+Human verifies every candidate in admin via deepLink.`;
 }

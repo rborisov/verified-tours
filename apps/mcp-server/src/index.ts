@@ -65,7 +65,7 @@ function createServer(): McpServer {
     "submit_offer_candidate",
     {
       description:
-        "Submit an L2/L3-verified package offer for human confirmation (status pending_human). deepLink MUST be the hotel/package page URL (not a search results list). SaleTur lists like /Турция/#&query=… are rejected — use /…/hotel/Name.htm. Also rejects listing vs page price drift >15%.",
+        "Submit an L2/L3-verified BOOKABLE package offer for human confirmation. deepLink MUST be the buy/book offer page (city+dates+price visible), never a search list or hotel brochure. SaleTur list/brochure URLs are rejected. Prefer Level.Travel / Travelata / Onlinetours. Also rejects listing vs page price drift >15%.",
       inputSchema: {
         jobId: z.string().min(1),
         requestId: z.string().optional(),
@@ -78,7 +78,7 @@ function createServer(): McpServer {
           .string()
           .url()
           .describe(
-            "URL of the specific hotel/package page opened for L2/L3 checks. Not a country search list.",
+            "URL of the bookable offer/checkout page (city, dates, price, buy). Not a search list or brochure.",
           ),
         fromCity: z.string().min(1),
         startDate: z.string().min(1),

@@ -87,7 +87,8 @@ export default async function AdminOffersPage() {
                     ) : null}
                     {linkProblem ? (
                       <p className="offer-link-warn">
-                        Ссылка — список поиска, не страница отеля. Отклоните и перезапустите поиск.
+                        Ссылка не на страницу бронирования (список/брошюра). Отклоните и
+                        перезапустите поиск после обновления.
                       </p>
                     ) : null}
                     <p className="offer-link-line">

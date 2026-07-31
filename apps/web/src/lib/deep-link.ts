@@ -1,5 +1,5 @@
 /**
- * Reject OTA search/list URLs so admins get a hotel package page, not a results list.
+ * Reject OTA search/list/brochure URLs so admins get a bookable offer page.
  */
 export function deepLinkRejectionReason(raw: string): string | null {
   let u: URL;
@@ -29,33 +29,35 @@ export function deepLinkRejectionReason(raw: string): string | null {
     /\/package\//i.test(pathLower) ||
     /\/offer\//i.test(pathLower);
 
-  // SaleTur: country list + SPA query hash is NOT a hotel page.
-  // Good: /Турция/Анталья/hotel/Some_Hotel.htm
-  // Bad:  /Турция/#&query={...}
+  // SaleTur: country list + SPA query hash, and static hotel brochures are NOT bookable offer pages.
   if (host === "saletur.ru" || host.endsWith(".saletur.ru")) {
-    if (!/\/hotel\//i.test(pathLower)) {
+    if (/\/hotel\/[^/]+\.htm/i.test(pathLower)) {
       return (
-        "saletur.ru deepLink must be a hotel page " +
-        "(/Страна/Курорт/hotel/Name.htm), not a country/search list with #query=."
+        "saletur.ru /hotel/*.htm is a hotel brochure, not a bookable tour page. " +
+        "Use Level.Travel / Travelata / Onlinetours offer/checkout URL instead."
       );
     }
+    return (
+      "saletur.ru links are usually search lists, not bookable offers. " +
+      "Prefer Level.Travel / Travelata / Onlinetours package pages."
+    );
   }
 
   // Any OTA: encoded search-state blob without a hotel/package path.
   if (hasQueryBlob && !looksLikeHotelPage) {
     return (
-      "deepLink looks like a search listing (query={…}), not a specific hotel package page. " +
-      "Open the hotel card, copy that page URL, and resubmit."
+      "deepLink looks like a search listing (query={…}), not a bookable offer page. " +
+      "Navigate to the buy/book page and resubmit that URL."
     );
   }
 
   // Single path segment (e.g. /Турция/) + search hash/params → listing.
   if (segments.length <= 1 && (u.hash.length > 8 || u.search.length > 8)) {
-    return "deepLink looks like a destination search page, not a specific hotel package.";
+    return "deepLink looks like a destination search page, not a bookable offer.";
   }
 
   if (/\/search\b/i.test(pathLower) && !looksLikeHotelPage) {
-    return "deepLink is a /search URL. Use the opened hotel/package page URL instead.";
+    return "deepLink is a /search URL. Use the opened bookable offer page URL instead.";
   }
 
   return null;

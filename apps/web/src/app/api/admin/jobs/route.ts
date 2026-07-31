@@ -24,6 +24,17 @@ function readLogTail(jobId: string, maxChars = 4000): string | null {
   }
 }
 
+function readPrompt(jobId: string, maxChars = 8000): string | null {
+  const promptPath = path.join(resolveWorkspace(), "logs", `${jobId}.prompt.txt`);
+  if (!existsSync(promptPath)) return null;
+  try {
+    const raw = readFileSync(promptPath, "utf8");
+    return raw.length <= maxChars ? raw : `${raw.slice(0, maxChars)}\n…`;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   const admin = await requireAdminApi();
   if (admin.error) return admin.error;
@@ -65,6 +76,7 @@ export async function GET() {
       ...serializeJob(active),
       pendingForRequest,
       logTail: readLogTail(active.id),
+      prompt: readPrompt(active.id),
     },
     pendingOffers,
     recent: recent.map(serializeJob),

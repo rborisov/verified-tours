@@ -9,15 +9,16 @@ describe("deepLinkRejectionReason", () => {
       "https://saletur.ru/%D0%A2%D1%83%D1%80%D1%86%D0%B8%D1%8F/#&query=%7B%22auto%22%3Afalse%2C%22co%22%3A%2283%22%7D";
     const reason = deepLinkRejectionReason(url);
     assert.ok(reason);
-    assert.match(reason!, /hotel page/i);
+    assert.match(reason!, /saletur/i);
     assert.equal(isPackageDeepLink(url), false);
   });
 
-  it("accepts saletur hotel page", () => {
+  it("rejects saletur hotel brochure", () => {
     const url =
       "https://saletur.ru/%D0%A2%D1%83%D1%80%D1%86%D0%B8%D1%8F/%D0%90%D0%BD%D1%82%D0%B0%D0%BB%D1%8C%D1%8F/hotel/Mitos_Apart.htm";
-    assert.equal(deepLinkRejectionReason(url), null);
-    assert.equal(isPackageDeepLink(url), true);
+    const reason = deepLinkRejectionReason(url);
+    assert.ok(reason);
+    assert.match(reason!, /brochure|bookable/i);
   });
 
   it("rejects generic query blob without hotel path", () => {

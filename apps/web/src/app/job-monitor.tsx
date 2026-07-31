@@ -24,6 +24,7 @@ type ActiveJob = {
   request: JobRequest | null;
   pendingForRequest?: number;
   logTail?: string | null;
+  prompt?: string | null;
 };
 
 type Payload = {
@@ -161,6 +162,12 @@ export function JobMonitor({
           ) : null}
         </li>
       </ul>
+      {active.prompt ? (
+        <details className="job-log">
+          <summary>Промпт агента</summary>
+          <pre>{active.prompt}</pre>
+        </details>
+      ) : null}
       {active.logTail ? (
         <details className="job-log">
           <summary>Лог агента (хвост)</summary>

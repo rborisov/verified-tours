@@ -8,7 +8,7 @@ export function SiteHeader({
   return (
     <header className="topbar">
       <Link href="/" className="brand">
-        Пальма
+        NoFakeTours
       </Link>
       <nav className="nav">{actions}</nav>
     </header>

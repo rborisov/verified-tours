@@ -16,7 +16,7 @@ const sans = Onest({
 });
 
 export const metadata: Metadata = {
-  title: "Пальма — проверенные туры",
+  title: "NoFakeTours — без фейковых туров",
   description:
     "Поиск пакетных туров агентом с ручной верификацией цены, города вылета и дат",
 };
