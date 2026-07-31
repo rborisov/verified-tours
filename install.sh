@@ -798,6 +798,12 @@ install_app() {
   export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}"
   # Point Prisma at the runtime DB while building/seeding
   export DATABASE_URL="file:${DATA_DIR}/tours.db"
+  # Seed reads ALLOWED_EMAILS from env — must come from the install .env, not build-tree.
+  set -a
+  # shellcheck disable=SC1091
+  source "${INSTALL_ROOT}/.env"
+  set +a
+  export DATABASE_URL="file:${DATA_DIR}/tours.db"
 
   local lock_hash="" lock_file="${BUILD_ROOT}/.install-npm-hash"
   local build_rev_file="${BUILD_ROOT}/.install-build-rev"
@@ -825,7 +831,16 @@ install_app() {
   # Schema must exist before `next build`: App Router may prerender routes that query Prisma.
   log "Applying database schema + seed…"
   npm run db:push --workspace=web
-  npm run db:seed --workspace=web
+  # Seed must use INSTALL_ROOT/.env (workspace script points at build-tree ../../.env).
+  log "Seeding allowlist from ${INSTALL_ROOT}/.env"
+  (
+    set -a
+    # shellcheck disable=SC1091
+    source "${INSTALL_ROOT}/.env"
+    set +a
+    export DATABASE_URL="file:${DATA_DIR}/tours.db"
+    npx tsx apps/web/prisma/seed.ts
+  )
 
   local need_build=0
   if [[ ! -f apps/web/.next/standalone/apps/web/server.js ]] \
