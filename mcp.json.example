@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "verified-tours": {
+      "command": "npx",
+      "args": ["tsx", "apps/mcp-server/src/index.ts"],
+      "env": {
+        "PORTAL_URL": "http://127.0.0.1:3001",
+        "INTERNAL_API_KEY": "change-me"
+      }
+    }
+  }
+}
