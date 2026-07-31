@@ -14,12 +14,13 @@ function plusDaysISO(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-export function SearchForm() {
+export function SearchForm({ disabled = false }: { disabled?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (disabled) return;
     setBusy(true);
     setMessage(null);
     const fd = new FormData(e.currentTarget);
@@ -50,12 +51,22 @@ export function SearchForm() {
       return;
     }
     setMessage(
-      `Задача ${data.jobId} запущена. Кандидаты появятся в разделе «Офферы».`,
+      `Поиск запущен (job ${data.jobId}). Смотрите блок «Что происходит» выше — статус обновляется сам.`,
     );
+    window.location.hash = "job-status";
+    window.location.reload();
   }
+
+  const locked = disabled || busy;
 
   return (
     <form className="search-form" onSubmit={onSubmit}>
+      {disabled ? (
+        <p className="muted full">
+          Форма заблокирована: уже идёт поиск. Отмените его в блоке статуса или дождитесь
+          завершения.
+        </p>
+      ) : null}
       <label>
         Город вылета
         <input name="fromCity" defaultValue="Нижний Новгород" required />
@@ -107,8 +118,8 @@ export function SearchForm() {
         <textarea name="rawBrief" rows={3} placeholder="Опционально" />
       </label>
       <div className="full">
-        <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? "Запуск…" : "Искать с проверкой"}
+        <button className="btn btn-primary" type="submit" disabled={locked}>
+          {busy ? "Запуск…" : disabled ? "Поиск уже идёт" : "Искать с проверкой"}
         </button>
         {message ? <p className="muted" style={{ marginTop: "0.75rem" }}>{message}</p> : null}
       </div>

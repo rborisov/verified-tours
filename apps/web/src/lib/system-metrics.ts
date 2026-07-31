@@ -58,11 +58,12 @@ export async function collectSystemMetrics() {
     disk = null;
   }
 
-  const [offers, pending, verified, jobsRunning] = await Promise.all([
+  const [offers, pending, verified, jobsRunning, jobsQueued] = await Promise.all([
     prisma.offer.count(),
     prisma.offer.count({ where: { status: "pending_human" } }),
     prisma.offer.count({ where: { status: "verified" } }),
     prisma.agentJob.count({ where: { status: "running" } }),
+    prisma.agentJob.count({ where: { status: "queued" } }),
   ]);
 
   return {
@@ -72,7 +73,14 @@ export async function collectSystemMetrics() {
       workspaceBytes: dirBytes(workspace),
       dataBytes: dirBytes(dataDir),
     },
-    counts: { offers, pending, verified, jobsRunning },
+    counts: {
+      offers,
+      pending,
+      verified,
+      jobsRunning,
+      jobsQueued,
+      jobsActive: jobsRunning + jobsQueued,
+    },
     apiKeyConfigured: Boolean(process.env.CURSOR_API_KEY?.trim()),
   };
 }
