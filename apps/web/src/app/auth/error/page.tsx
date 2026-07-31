@@ -1,11 +1,13 @@
 import Link from "next/link";
 
+import { ResortBackdrop } from "@/app/resort-backdrop";
+import { SiteHeader } from "@/app/site-header";
+
 const ERROR_MESSAGES: Record<string, string> = {
-  AccessDenied:
-    "Your account is not allowed to access this area, or you are not an admin.",
-  Configuration: "Authentication is misconfigured. Contact the site operator.",
-  Verification: "The sign-in link is invalid or has expired.",
-  Default: "Sign-in failed. Please try again or contact the site operator.",
+  AccessDenied: "Этот аккаунт не в allowlist или без прав админа.",
+  Configuration: "Ошибка настройки входа. Свяжитесь с оператором.",
+  Verification: "Ссылка входа недействительна или устарела.",
+  Default: "Не удалось войти. Попробуйте ещё раз.",
 };
 
 type AuthErrorPageProps = {
@@ -14,17 +16,28 @@ type AuthErrorPageProps = {
 
 export default async function AuthErrorPage({ searchParams }: AuthErrorPageProps) {
   const { error } = await searchParams;
-  const message =
-    (error && ERROR_MESSAGES[error]) ?? ERROR_MESSAGES.Default;
+  const message = (error && ERROR_MESSAGES[error]) ?? ERROR_MESSAGES.Default;
 
   return (
-    <main style={{ padding: "2rem", fontFamily: "system-ui, sans-serif" }}>
-      <h1>Sign-in error</h1>
-      <p>{message}</p>
-      {error ? <p style={{ color: "#666" }}>Code: {error}</p> : null}
-      <p>
-        <Link href="/auth/signin">Try signing in again</Link>
-      </p>
-    </main>
+    <div className="page">
+      <ResortBackdrop />
+      <main className="shell">
+        <SiteHeader
+          actions={
+            <Link href="/auth/signin" className="nav-link">
+              Войти
+            </Link>
+          }
+        />
+        <section className="hero-page">
+          <h1>Ошибка входа</h1>
+          <p>{message}</p>
+          {error ? <p className="muted">Код: {error}</p> : null}
+        </section>
+        <Link className="btn btn-primary" href="/auth/signin">
+          Попробовать снова
+        </Link>
+      </main>
+    </div>
   );
 }

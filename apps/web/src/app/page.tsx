@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ResortBackdrop } from "@/app/resort-backdrop";
 import { SiteHeader } from "@/app/site-header";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -17,70 +18,94 @@ export default async function HomePage() {
   });
 
   return (
-    <main className="shell">
-      <SiteHeader
-        actions={
-          <>
+    <div className="page">
+      <ResortBackdrop />
+      <main className="shell">
+        <SiteHeader
+          actions={
+            <>
+              {session?.user?.isAdmin ? (
+                <>
+                  <Link href="/admin/offers" className="nav-link">
+                    Офферы
+                  </Link>
+                  <Link href="/admin/system" className="nav-link">
+                    Система
+                  </Link>
+                </>
+              ) : (
+                <Link href="/auth/signin" className="nav-link">
+                  Войти
+                </Link>
+              )}
+            </>
+          }
+        />
+
+        <section className="hero-stage">
+          <p className="hero-brand">Пальма</p>
+          <p className="hero-lead">
+            Пакетные туры с проверкой города вылета, дат и цены на странице отеля.
+          </p>
+          <div className="hero-cta">
             {session?.user?.isAdmin ? (
-              <>
-                <Link href="/admin/offers" className="nav-link">
-                  Admin
-                </Link>
-                <Link href="/admin/system" className="nav-link">
-                  System
-                </Link>
-              </>
+              <a className="btn btn-primary" href="#search">
+                Найти тур
+              </a>
             ) : (
-              <Link href="/auth/signin" className="nav-link">
-                Sign in
+              <Link className="btn btn-primary" href="/auth/signin">
+                Войти
               </Link>
             )}
-          </>
-        }
-      />
-
-      <section className="hero">
-        <h1>Verified tours</h1>
-        <p>
-          Agent searches packages on demand; final confirmation is human. Cached
-          verified offers feed the next search.
-        </p>
-      </section>
-
-      {session?.user?.isAdmin ? (
-        <section className="panel">
-          <h2>New search</h2>
-          <SearchForm />
+            <a className="btn" href="#offers">
+              Проверенные
+            </a>
+          </div>
         </section>
-      ) : (
-        <section className="panel">
-          <p>
-            Sign in with an allowlisted admin email to run a search.
-          </p>
-        </section>
-      )}
 
-      <section className="panel">
-        <h2>Verified offers</h2>
-        {verified.length === 0 ? (
-          <p className="muted">No verified offers yet.</p>
+        {session?.user?.isAdmin ? (
+          <section className="section" id="search">
+            <h2>Новый поиск</h2>
+            <p className="section-lead">
+              Агент ищет по запросу; финальное подтверждение — вручную. Кэш
+              питает следующие поиски.
+            </p>
+            <SearchForm />
+          </section>
         ) : (
-          <ul className="offer-list">
-            {verified.map((o) => (
-              <li key={o.id}>
-                <a href={o.deepLink} target="_blank" rel="noreferrer">
-                  {o.hotelName}
-                </a>
-                <span className="muted">
-                  {" "}
-                  · {o.fromCity} · {o.startDate.toISOString().slice(0, 10)} ·{" "}
-                  {o.nights}n · {o.pagePriceRub?.toLocaleString("ru-RU")} ₽
-                </span>
-              </li>
-            ))}
-          </ul>
+          <section className="section" id="search">
+            <h2>Доступ</h2>
+            <p className="section-lead">
+              Войдите с allowlist-email, чтобы запустить поиск.
+            </p>
+            <Link className="btn btn-primary" href="/auth/signin">
+              Войти
+            </Link>
+          </section>
         )}
-      </section>
-    </main>
+
+        <section className="section" id="offers">
+          <h2>Проверенные офферы</h2>
+          <p className="section-lead">Подтверждены человеком, ещё в сроке годности.</p>
+          {verified.length === 0 ? (
+            <p className="muted">Пока пусто — запустите поиск и подтвердите кандидатов.</p>
+          ) : (
+            <ul className="offer-list">
+              {verified.map((o) => (
+                <li key={o.id}>
+                  <a href={o.deepLink} target="_blank" rel="noreferrer">
+                    {o.hotelName}
+                  </a>
+                  <span className="muted">
+                    {o.fromCity} · {o.startDate.toISOString().slice(0, 10)} · {o.nights}{" "}
+                    ноч. · {o.pagePriceRub?.toLocaleString("ru-RU")} ₽
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

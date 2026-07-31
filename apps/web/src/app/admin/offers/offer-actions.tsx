@@ -10,7 +10,7 @@ export function OfferActions({ offerId }: { offerId: string }) {
   async function act(action: "verify" | "reject") {
     setBusy(true);
     const reason =
-      action === "reject" ? window.prompt("Reject reason?") || "Rejected by admin" : undefined;
+      action === "reject" ? window.prompt("Причина отклонения?") || "Отклонено админом" : undefined;
     await fetch("/api/admin/offers", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -23,10 +23,10 @@ export function OfferActions({ offerId }: { offerId: string }) {
   return (
     <div className="row-actions">
       <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void act("verify")}>
-        Confirm
+        Подтвердить
       </button>
       <button className="btn" type="button" disabled={busy} onClick={() => void act("reject")}>
-        Reject
+        Отклонить
       </button>
     </div>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ResortBackdrop } from "@/app/resort-backdrop";
 import { SiteHeader } from "@/app/site-header";
 import { requireAdmin } from "@/lib/require-admin";
 import { collectSystemMetrics } from "@/lib/system-metrics";
@@ -16,42 +17,45 @@ export default async function AdminSystemPage() {
   const metrics = await collectSystemMetrics();
 
   return (
-    <main className="shell">
-      <SiteHeader
-        actions={
-          <>
-            <Link href="/" className="nav-link">
-              Home
-            </Link>
-            <Link href="/admin/offers" className="nav-link">
-              Offers
-            </Link>
-          </>
-        }
-      />
-      <section className="hero">
-        <h1>System</h1>
-        <p>Disk and storage for this host install. Alerts are sent by the worker.</p>
-      </section>
-      <section className="panel">
-        <ul>
-          <li>
-            Disk:{" "}
-            {metrics.disk
-              ? `${metrics.disk.usedPct.toFixed(1)}% used · free ${fmtBytes(metrics.disk.free)}`
-              : "n/a"}
-          </li>
-          <li>Database: {fmtBytes(metrics.storage.databaseBytes)}</li>
-          <li>Workspace: {fmtBytes(metrics.storage.workspaceBytes)}</li>
-          <li>Data dir: {fmtBytes(metrics.storage.dataBytes)}</li>
-          <li>
-            Offers: {metrics.counts.offers} total · {metrics.counts.pending} pending ·{" "}
-            {metrics.counts.verified} verified
-          </li>
-          <li>Running jobs: {metrics.counts.jobsRunning}</li>
-          <li>CURSOR_API_KEY: {metrics.apiKeyConfigured ? "configured" : "missing"}</li>
-        </ul>
-      </section>
-    </main>
+    <div className="page">
+      <ResortBackdrop />
+      <main className="shell">
+        <SiteHeader
+          actions={
+            <>
+              <Link href="/" className="nav-link">
+                Главная
+              </Link>
+              <Link href="/admin/offers" className="nav-link">
+                Офферы
+              </Link>
+            </>
+          }
+        />
+        <section className="hero-page">
+          <h1>Система</h1>
+          <p>Диск и хранилище на этом хосте. Алерты шлёт worker.</p>
+        </section>
+        <section className="section">
+          <ul style={{ listStyle: "none", display: "grid", gap: "0.55rem" }}>
+            <li>
+              Диск:{" "}
+              {metrics.disk
+                ? `${metrics.disk.usedPct.toFixed(1)}% занято · свободно ${fmtBytes(metrics.disk.free)}`
+                : "н/д"}
+            </li>
+            <li>База: {fmtBytes(metrics.storage.databaseBytes)}</li>
+            <li>Workspace: {fmtBytes(metrics.storage.workspaceBytes)}</li>
+            <li>Data: {fmtBytes(metrics.storage.dataBytes)}</li>
+            <li>
+              Офферы: {metrics.counts.offers} · pending {metrics.counts.pending} · verified{" "}
+              {metrics.counts.verified}
+            </li>
+            <li>Jobs: {metrics.counts.jobsRunning}</li>
+            <li>CURSOR_API_KEY: {metrics.apiKeyConfigured ? "есть" : "нет"}</li>
+          </ul>
+        </section>
+      </main>
+    </div>
   );
 }

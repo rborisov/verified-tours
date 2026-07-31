@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, Manrope } from "next/font/google";
+import { Onest, Unbounded } from "next/font/google";
 
 import "./globals.css";
 
-const display = Manrope({
+const display = Unbounded({
   subsets: ["latin", "cyrillic", "cyrillic-ext"],
   variable: "--font-display",
-  weight: ["600", "700", "800"],
+  weight: ["500", "600", "700"],
 });
 
-const sans = IBM_Plex_Sans({
+const sans = Onest({
   subsets: ["latin", "cyrillic", "cyrillic-ext"],
   variable: "--font-sans",
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "verified tours",
-  description: "On-demand agent search with human-verified package offers",
+  title: "Пальма — проверенные туры",
+  description:
+    "Поиск пакетных туров агентом с ручной верификацией цены, города вылета и дат",
 };
 
 export default function RootLayout({

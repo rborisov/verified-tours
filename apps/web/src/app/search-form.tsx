@@ -46,61 +46,63 @@ export function SearchForm() {
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) {
-      setMessage(data.error || `Error ${res.status}`);
+      setMessage(data.error || `Ошибка ${res.status}`);
       return;
     }
-    setMessage(`Started job ${data.jobId}. Review candidates in Admin → Offers.`);
+    setMessage(
+      `Задача ${data.jobId} запущена. Кандидаты появятся в разделе «Офферы».`,
+    );
   }
 
   return (
     <form className="search-form" onSubmit={onSubmit}>
       <label>
-        From city
-        <input name="fromCity" defaultValue="Nizhny Novgorod" required />
+        Город вылета
+        <input name="fromCity" defaultValue="Нижний Новгород" required />
       </label>
       <label>
-        Countries
-        <input name="countries" defaultValue="Turkey, Morocco, Montenegro" required />
+        Страны
+        <input name="countries" defaultValue="Турция, Марокко, Черногория" required />
       </label>
       <label>
-        Adults
+        Взрослые
         <input name="adults" type="number" min={1} defaultValue={2} />
       </label>
       <label>
-        Children ages (comma)
+        Возраст детей
         <input name="childrenAges" defaultValue="11,14" placeholder="11,14" />
       </label>
       <label>
-        Depart from
+        Вылет с
         <input name="departFrom" type="date" defaultValue={tomorrowISO()} required />
       </label>
       <label>
-        Depart to
+        Вылет по
         <input name="departTo" type="date" defaultValue={plusDaysISO(14)} required />
       </label>
       <label>
-        Nights min
+        Ночей от
         <input name="nightsMin" type="number" min={1} defaultValue={7} />
       </label>
       <label>
-        Nights max
+        Ночей до
         <input name="nightsMax" type="number" min={1} defaultValue={7} />
       </label>
       <label className="check">
-        <input name="seaRequired" type="checkbox" defaultChecked /> Sea
+        <input name="seaRequired" type="checkbox" defaultChecked /> Море
       </label>
       <label className="check">
-        <input name="visaFreeOnly" type="checkbox" defaultChecked /> Visa not required
+        <input name="visaFreeOnly" type="checkbox" defaultChecked /> Без визы
       </label>
       <label className="check">
-        <input name="preferHot" type="checkbox" defaultChecked /> Prefer hot/discount
+        <input name="preferHot" type="checkbox" defaultChecked /> Горящие / скидки
       </label>
       <label className="full">
-        Raw brief (optional)
-        <textarea name="rawBrief" rows={3} />
+        Свободный бриф
+        <textarea name="rawBrief" rows={3} placeholder="Опционально" />
       </label>
       <button className="btn btn-primary" type="submit" disabled={busy}>
-        {busy ? "Starting…" : "Run verified search"}
+        {busy ? "Запуск…" : "Искать с проверкой"}
       </button>
       {message ? <p className="muted full">{message}</p> : null}
     </form>
