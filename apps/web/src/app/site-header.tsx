@@ -8,7 +8,7 @@ export function SiteHeader({
   return (
     <header className="topbar">
       <Link href="/" className="brand">
-        NoFakeTours
+        NoFake<span className="brand-tail">Tours</span>
       </Link>
       <nav className="nav">{actions}</nav>
     </header>

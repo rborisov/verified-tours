@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
-import { Onest, Unbounded } from "next/font/google";
+import { Cormorant_Garamond, Onest, Syne } from "next/font/google";
 
 import "./globals.css";
 
-const display = Unbounded({
-  subsets: ["latin", "cyrillic", "cyrillic-ext"],
+const display = Syne({
+  subsets: ["latin"],
   variable: "--font-display",
-  weight: ["500", "600", "700"],
+  weight: ["600", "700", "800"],
+});
+
+const quote = Cormorant_Garamond({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-quote",
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
 });
 
 const sans = Onest({
@@ -27,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={`${display.variable} ${sans.variable}`}>
+    <html lang="ru" className={`${display.variable} ${quote.variable} ${sans.variable}`}>
       <body>{children}</body>
     </html>
   );

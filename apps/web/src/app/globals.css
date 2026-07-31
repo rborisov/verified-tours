@@ -243,12 +243,17 @@ select {
 }
 
 .brand {
-  font-family: var(--font-display), "Unbounded", sans-serif;
-  font-weight: 700;
-  font-size: clamp(1.45rem, 3vw, 1.85rem);
-  letter-spacing: -0.03em;
+  font-family: var(--font-display), "Syne", sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.35rem, 2.8vw, 1.7rem);
+  letter-spacing: -0.02em;
   color: var(--ink);
   text-shadow: 0 1px 0 rgba(247, 243, 235, 0.5);
+}
+
+.brand-tail {
+  font-weight: 600;
+  color: var(--sea-deep);
 }
 
 .nav {
@@ -290,22 +295,46 @@ select {
 }
 
 .hero-brand {
-  font-family: var(--font-display), "Unbounded", sans-serif;
-  font-weight: 700;
-  font-size: clamp(3rem, 11vw, 5.75rem);
-  line-height: 0.92;
-  letter-spacing: -0.045em;
+  font-family: var(--font-display), "Syne", sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.75rem, 9.5vw, 5.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
   color: var(--ink);
-  margin-bottom: 1rem;
+  margin-bottom: 1.15rem;
   text-shadow: 0 2px 24px rgba(247, 243, 235, 0.35);
 }
 
+.hero-brand-tail {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--sea-deep);
+}
+
 .hero-lead {
-  max-width: 28rem;
-  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
-  line-height: 1.45;
-  color: var(--ink-soft);
+  max-width: 26rem;
   margin-bottom: 1.5rem;
+  border: none;
+}
+
+.hero-lead p {
+  font-family: var(--font-quote), "Cormorant Garamond", serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.35rem, 2.8vw, 1.7rem);
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.hero-lead cite {
+  display: block;
+  margin-top: 0.65rem;
+  font-family: var(--font-sans), "Onest", sans-serif;
+  font-style: normal;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
 }
 
 .hero-cta {
@@ -363,9 +392,9 @@ select {
 }
 
 .section h2 {
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 600;
+  font-family: var(--font-sans), "Onest", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
   margin-bottom: 0.35rem;
 }
@@ -378,8 +407,9 @@ select {
 }
 
 .hero-page h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-sans), "Onest", sans-serif;
   font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
   margin-bottom: 0.5rem;
@@ -491,8 +521,8 @@ select {
 }
 
 .offer-list a {
-  font-family: var(--font-display);
-  font-weight: 600;
+  font-family: var(--font-sans), "Onest", sans-serif;
+  font-weight: 700;
   font-size: 1.05rem;
   letter-spacing: -0.02em;
   color: var(--sea-deep);

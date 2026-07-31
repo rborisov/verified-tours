@@ -51,11 +51,13 @@ export default async function HomePage() {
         />
 
         <section className="hero-stage">
-          <p className="hero-brand">NoFakeTours</p>
-          <p className="hero-lead">
-            Реальные пакетные туры: ссылка ведёт на страницу, где видно вылет, даты и
-            цену и можно бронировать — не на пустой список поиска.
+          <p className="hero-brand">
+            NoFake<span className="hero-brand-tail">Tours</span>
           </p>
+          <blockquote className="hero-lead">
+            <p>Зорко одно лишь сердце. Самого главного глазами не увидишь.</p>
+            <cite>— Антуан де Сент-Экзюпери</cite>
+          </blockquote>
           <div className="hero-cta">
             {session?.user?.isAdmin ? (
               <a className="btn btn-primary" href="#search">
