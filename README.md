@@ -53,6 +53,22 @@ MCP (Cursor `mcp.json` example):
 
 ## Same weak VPS as newsdigest
 
+**Disk:** a 10 GB VPS with newsdigest already at ~80% full is **too tight** for a naive second build (`npm ci` + `next build` peaks ~2.2 GiB free). `install.sh` now:
+
+1. Checks free space (wants ≥ 2200 MiB, hard floor 1800 MiB)
+2. Reclaims apt/journal/npm cache and prunes `/var/tmp/newsdigest-build` if needed (runtime `/opt/newsdigest` untouched)
+3. After staging, prunes `/var/tmp/verified-tours-build` heavy artifacts
+
+Before install, on the VPS:
+
+```bash
+df -h /
+du -xh /var/tmp /opt --max-depth=2 2>/dev/null | sort -h | tail -20
+# optional manual free-up:
+rm -rf /var/tmp/newsdigest-build/node_modules /var/tmp/newsdigest-build/apps/web/.next
+apt-get clean && journalctl --vacuum-size=40M
+```
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash
 ```

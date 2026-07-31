@@ -17,6 +17,11 @@ WEB_UNIT=/etc/systemd/system/verified-tours-web.service
 WORKER_UNIT=/etc/systemd/system/verified-tours-worker.service
 SWAPFILE=/swapfile
 SWAP_SIZE_GB=2
+# Peak for npm ci + next build on this monorepo (~1.5–2.0 GiB) + headroom.
+MIN_FREE_BUILD_MB=2200
+# After reclaim, refuse below this — build will almost certainly fail.
+MIN_FREE_HARD_MB=1800
+SIBLING_BUILD_ROOT=/var/tmp/newsdigest-build
 
 ensure_data_dirs() {
   mkdir -p "${DATA_DIR}/logs"
@@ -102,8 +107,107 @@ ensure_apt_packages() {
 }
 
 # 1 GB boxes need swap for `next build`; runtime fits in ~512–800 MB.
+# Creating a 2G swapfile needs free disk — reclaim first on tiny VPS disks.
+disk_avail_mb() {
+  df -Pm / | awk 'NR==2 {print $4}'
+}
+
+log_disk() {
+  local avail
+  avail="$(disk_avail_mb)"
+  log "Disk: $(df -h / | awk 'NR==2 {printf "size=%s used=%s avail=%s (%s)", $2, $3, $4, $5}') · ${avail} MiB free"
+  du -sh /opt/newsdigest /opt/verified-tours /var/tmp/newsdigest-build /var/tmp/verified-tours-build /var/cache/apt 2>/dev/null || true
+}
+
+reclaim_disk_space() {
+  log "Reclaiming disk before build (10G hosts with newsdigest need this)"
+  apt-get clean >/dev/null 2>&1 || true
+  rm -rf /var/cache/apt/archives/*.deb 2>/dev/null || true
+  journalctl --vacuum-size=40M >/dev/null 2>&1 || true
+  npm cache clean --force >/dev/null 2>&1 || true
+  rm -rf /root/.npm/_cacache 2>/dev/null || true
+
+  # Drop our own previous heavy build artifacts (git kept for shallow fetch).
+  if [[ -d "${BUILD_ROOT}" ]]; then
+    log "Pruning previous ${BUILD_ROOT} node_modules / .next"
+    rm -rf \
+      "${BUILD_ROOT}/node_modules" \
+      "${BUILD_ROOT}/apps/web/node_modules" \
+      "${BUILD_ROOT}/apps/web/.next" \
+      "${BUILD_ROOT}/apps/worker/dist" \
+      "${BUILD_ROOT}/apps/mcp-server/dist" \
+      "${BUILD_ROOT}/.install-npm-hash" \
+      "${BUILD_ROOT}/.install-build-rev" 2>/dev/null || true
+  fi
+
+  # Sibling newsdigest build cache is usually the largest reclaimable chunk.
+  if [[ -d "${SIBLING_BUILD_ROOT}" ]]; then
+    local sibling_mb=0
+    sibling_mb="$(du -sm "${SIBLING_BUILD_ROOT}" 2>/dev/null | awk '{print $1}')"
+    log "Found sibling build cache ${SIBLING_BUILD_ROOT} (~${sibling_mb} MiB)"
+    if [[ "$(disk_avail_mb)" -lt "${MIN_FREE_BUILD_MB}" ]]; then
+      log "Freeing sibling build cache (newsdigest runtime under /opt/newsdigest is untouched)"
+      rm -rf \
+        "${SIBLING_BUILD_ROOT}/node_modules" \
+        "${SIBLING_BUILD_ROOT}/apps/web/.next" \
+        "${SIBLING_BUILD_ROOT}/.install-npm-hash" \
+        "${SIBLING_BUILD_ROOT}/.install-build-rev" 2>/dev/null || true
+      # If still tight, remove entire sibling build tree (rebuilt on next newsdigest update).
+      if [[ "$(disk_avail_mb)" -lt "${MIN_FREE_BUILD_MB}" ]]; then
+        log "Still low on space — removing entire ${SIBLING_BUILD_ROOT}"
+        rm -rf "${SIBLING_BUILD_ROOT}"
+      fi
+    fi
+  fi
+
+  log_disk
+}
+
+require_disk_for_build() {
+  log_disk
+  local avail
+  avail="$(disk_avail_mb)"
+  if [[ "${avail}" -ge "${MIN_FREE_BUILD_MB}" ]]; then
+    log "Disk OK for build (≥ ${MIN_FREE_BUILD_MB} MiB free)"
+    return 0
+  fi
+
+  log "Only ${avail} MiB free — need ~${MIN_FREE_BUILD_MB} MiB for npm ci + next build"
+  reclaim_disk_space
+  avail="$(disk_avail_mb)"
+  if [[ "${avail}" -lt "${MIN_FREE_HARD_MB}" ]]; then
+    die "Not enough disk after reclaim (${avail} MiB free, need ≥ ${MIN_FREE_HARD_MB} MiB). Free space manually (old logs, unused packages, enlarge disk), then re-run. Tip: du -xh / --max-depth=2 | sort -h | tail"
+  fi
+  if [[ "${avail}" -lt "${MIN_FREE_BUILD_MB}" ]]; then
+    log "WARNING: ${avail} MiB free is below ideal ${MIN_FREE_BUILD_MB} MiB — build may still fail; continuing"
+  else
+    log "Disk OK after reclaim (${avail} MiB free)"
+  fi
+}
+
+prune_build_tree_after_stage() {
+  # Keep shallow git for faster updates; drop heavy artifacts so 10G disks stay usable.
+  if [[ ! -d "${BUILD_ROOT}" ]]; then
+    return 0
+  fi
+  log "Pruning build tree after staging runtime (keeps .git only)"
+  rm -rf \
+    "${BUILD_ROOT}/node_modules" \
+    "${BUILD_ROOT}/apps/web/node_modules" \
+    "${BUILD_ROOT}/apps/web/.next" \
+    "${BUILD_ROOT}/apps/worker/node_modules" \
+    "${BUILD_ROOT}/apps/mcp-server/node_modules" \
+    "${BUILD_ROOT}/apps/worker/dist" \
+    "${BUILD_ROOT}/apps/mcp-server/dist" \
+    "${BUILD_ROOT}/.install-npm-hash" \
+    "${BUILD_ROOT}/.install-build-rev" 2>/dev/null || true
+  npm cache clean --force >/dev/null 2>&1 || true
+  du -sh "${BUILD_ROOT}" "${INSTALL_ROOT}" 2>/dev/null || true
+  log_disk
+}
+
 ensure_swap() {
-  local mem_kb swap_kb
+  local mem_kb swap_kb avail_mb
   mem_kb="$(awk '/MemTotal:/ {print $2}' /proc/meminfo)"
   swap_kb="$(awk '/SwapTotal:/ {print $2}' /proc/meminfo)"
   if [[ "${mem_kb}" -ge 1800000 ]]; then
@@ -114,10 +218,24 @@ ensure_swap() {
     log "Swap already present ($(awk '/SwapTotal:/ {printf "%.1f GiB", $2/1024/1024}' /proc/meminfo))"
     return 0
   fi
-  log "Low RAM (${mem_kb} kB) — creating ${SWAP_SIZE_GB}G swap at ${SWAPFILE}"
+
+  avail_mb="$(disk_avail_mb)"
+  local want_gb="${SWAP_SIZE_GB}"
+  # Need swap file + remaining build headroom; shrink swap if disk is tiny.
+  if [[ "${avail_mb}" -lt $((want_gb * 1024 + MIN_FREE_HARD_MB)) ]]; then
+    if [[ "${avail_mb}" -ge $((1024 + MIN_FREE_HARD_MB)) ]]; then
+      want_gb=1
+      log "Low disk (${avail_mb} MiB free) — creating ${want_gb}G swap instead of ${SWAP_SIZE_GB}G"
+    else
+      log "WARNING: not enough free disk for a new swapfile (${avail_mb} MiB). Relying on existing RAM; build may OOM."
+      return 0
+    fi
+  fi
+
+  log "Low RAM (${mem_kb} kB) — creating ${want_gb}G swap at ${SWAPFILE}"
   if [[ ! -f "${SWAPFILE}" ]]; then
-    fallocate -l "${SWAP_SIZE_GB}G" "${SWAPFILE}" 2>/dev/null \
-      || dd if=/dev/zero of="${SWAPFILE}" bs=1M count=$((SWAP_SIZE_GB * 1024)) status=none
+    fallocate -l "${want_gb}G" "${SWAPFILE}" 2>/dev/null \
+      || dd if=/dev/zero of="${SWAPFILE}" bs=1M count=$((want_gb * 1024)) status=none
     chmod 600 "${SWAPFILE}"
     mkswap "${SWAPFILE}" >/dev/null
   fi
@@ -155,6 +273,10 @@ install_node22() {
 
 install_packages() {
   log "Ensuring system packages (no Docker)"
+  log_disk
+  if [[ "$(disk_avail_mb)" -lt "${MIN_FREE_BUILD_MB}" ]]; then
+    reclaim_disk_space
+  fi
   ensure_apt_packages ca-certificates curl git openssl nginx certbot python3-certbot-nginx build-essential python3
   ensure_swap
   install_node22
@@ -729,8 +851,9 @@ install_app() {
 
   stage_runtime_from_build
   install_runtime_node_deps
+  prune_build_tree_after_stage
 
-  log "Build cache kept at ${BUILD_ROOT} (runtime stays slim under ${INSTALL_ROOT})"
+  log "Runtime under ${INSTALL_ROOT}; build tree pruned at ${BUILD_ROOT}"
   du -sh "${INSTALL_ROOT}" "${DATA_DIR}" "${BUILD_ROOT}" 2>/dev/null || true
 }
 
@@ -859,6 +982,7 @@ main() {
     RECONFIGURE=1
   fi
 
+  require_disk_for_build
   ensure_build_tree
   stop_docker_stack_if_present
   stop_host_services
@@ -877,6 +1001,8 @@ main() {
   fi
 
   install_cursor_cli
+  # Re-check after clone/prompts — peak is npm ci + next build
+  require_disk_for_build
   install_app
   write_mcp_json
   write_systemd_units
@@ -904,7 +1030,8 @@ main() {
 
   finish_marker
   log "Install finished (mode=${mode}, slim runtime under ${INSTALL_ROOT})."
-  log "Build cache: ${BUILD_ROOT} (reused on updates; not served)."
+  log "Build tree at ${BUILD_ROOT} is pruned after each install (re-fetched on updates)."
+  log_disk
 }
 
 main "$@"
