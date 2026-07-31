@@ -15,7 +15,7 @@ export function resolveAgentWorkspace(): string {
 }
 
 export function resolveMutexPath(): string {
-  return process.env.AGENT_MUTEX_PATH?.trim() || "/tmp/cursor-agent.lock";
+  return process.env.AGENT_MUTEX_PATH?.trim() || "/var/lock/cursor-agent.lock";
 }
 
 export type MutexResult =

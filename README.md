@@ -53,12 +53,26 @@ MCP (Cursor `mcp.json` example):
 
 ## Same weak VPS as newsdigest
 
-- **No Docker** — host Node + systemd (mirror newsdigest installer later).
+```bash
+curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash
+```
+
+- **No Docker** — host Node + systemd (`install.sh`).
+- Install root: `/opt/verified-tours`, build cache `/var/tmp/verified-tours-build`.
 - Ports: newsdigest `:3000`, verified-tours `:3001`.
-- One nginx, two server_names / certs.
+- One nginx, two `server_name`s / certs.
 - `AGENT_MUTEX_PATH=/var/lock/cursor-agent.lock` shared so only one Cursor agent runs.
-- Same `CURSOR_API_KEY` in both `.env` files.
+- Same personal `CURSOR_API_KEY` in both `.env` files.
+- MCP merge: installer keeps `news-digest` entries in `~/.cursor/mcp.json`.
 
 ## Disk alerts
 
 Worker cron (default hourly) checks used %. Above `DISK_ALERT_USED_PCT` posts to `DISK_ALERT_WEBHOOK_URL` and stores `DiskAlert` (cooldown `DISK_ALERT_COOLDOWN_HOURS`).
+
+## Local smoke checklist
+
+1. Fill `.env` (OAuth + `CURSOR_API_KEY` + `INTERNAL_API_KEY`).
+2. `npm run db:push --workspace=web && npm run db:seed --workspace=web`
+3. `npm run dev:web` → sign in → run search form.
+4. Point Cursor MCP at `mcp.json.example` (or built `apps/mcp-server`).
+5. Admin → Offers → Confirm/Reject; home shows verified rows.
