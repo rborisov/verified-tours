@@ -4,6 +4,7 @@ import { ResortBackdrop } from "@/app/resort-backdrop";
 import { SiteHeader } from "@/app/site-header";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { JobMonitor } from "./job-monitor";
 import { SearchForm } from "./search-form";
 
 export default async function HomePage() {
@@ -16,6 +17,13 @@ export default async function HomePage() {
     orderBy: { verifiedAt: "desc" },
     take: 10,
   });
+  const activeJob = session?.user?.isAdmin
+    ? await prisma.agentJob.findFirst({
+        where: { status: { in: ["queued", "running", "awaiting_human"] } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      })
+    : null;
 
   return (
     <div className="page">
@@ -70,7 +78,8 @@ export default async function HomePage() {
               Агент ищет по запросу; финальное подтверждение — вручную. Кэш
               питает следующие поиски.
             </p>
-            <SearchForm />
+            <JobMonitor initialActive={Boolean(activeJob)} />
+            <SearchForm disabled={Boolean(activeJob)} />
           </section>
         ) : (
           <section className="section" id="search">
