@@ -50,9 +50,7 @@ export function SearchForm({ disabled = false }: { disabled?: boolean }) {
       setMessage(data.error || `Ошибка ${res.status}`);
       return;
     }
-    setMessage(
-      `Поиск запущен (job ${data.jobId}). Смотрите блок «Что происходит» выше — статус обновляется сам.`,
-    );
+    setMessage("Поиск запущен — пальмы оживут, полоска покажет ход. Лог — в «Система».");
     window.location.hash = "job-status";
     window.location.reload();
   }
