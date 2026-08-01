@@ -81,7 +81,7 @@ export default async function HomePage() {
               Агент ищет bookable-офферы; вы подтверждаете по ссылке. Кэш питает следующие
               поиски.
             </p>
-            <JobMonitor initialActive={Boolean(activeJob)} />
+            <JobMonitor variant="compact" initialActive={Boolean(activeJob)} />
             <SearchForm disabled={Boolean(activeJob)} />
           </section>
         ) : (

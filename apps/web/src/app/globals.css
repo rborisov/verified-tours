@@ -178,6 +178,62 @@ select {
   animation-delay: -1s;
 }
 
+.palm {
+  transform-origin: 50% 100%;
+  transform-box: fill-box;
+}
+
+/* Searching: palms grow + wave harder (home progress cue) */
+.page.is-searching .palm-left {
+  animation: palm-grow 2.6s ease-in-out infinite alternate;
+}
+.page.is-searching .palm-mid {
+  animation: palm-grow 2.2s ease-in-out infinite alternate;
+  animation-delay: 0.35s;
+}
+.page.is-searching .palm-right {
+  animation: palm-grow 2.9s ease-in-out infinite alternate;
+  animation-delay: 0.7s;
+}
+.page.is-searching .palm-fronds {
+  animation-name: frond-sway-search;
+  animation-duration: 1.7s;
+}
+.page.is-searching .palm-right .palm-fronds {
+  animation-duration: 1.45s;
+}
+.page.is-searching .palm-mid .palm-fronds {
+  animation-duration: 1.9s;
+}
+.page.is-searching .resort-wave-a {
+  animation-duration: 4.5s;
+}
+.page.is-searching .resort-wave-b {
+  animation-duration: 5.5s;
+}
+.page.is-searching .resort-haze {
+  animation-duration: 6s;
+  opacity: 1;
+}
+
+@keyframes palm-grow {
+  from {
+    transform: scale(1, 0.94);
+  }
+  to {
+    transform: scale(1.05, 1.1);
+  }
+}
+
+@keyframes frond-sway-search {
+  from {
+    transform: rotate(-9deg);
+  }
+  to {
+    transform: rotate(9deg);
+  }
+}
+
 @keyframes wave-shift {
   from {
     transform: translateX(-2%) translateY(0);
@@ -612,6 +668,70 @@ select {
   margin-top: 0.25rem;
 }
 
+/* Home: slim progress instead of status dump */
+.search-pulse {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+}
+
+.search-pulse-error {
+  color: #9a3412;
+  font-size: 0.92rem;
+}
+
+.search-pulse-idle {
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.search-pulse-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(18, 50, 58, 0.12);
+  overflow: hidden;
+}
+
+.search-pulse-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--sea-deep), var(--lagoon));
+  transition: width 0.8s ease;
+}
+
+.search-pulse-fill-live {
+  background-size: 200% 100%;
+  animation: pulse-sheen 1.6s linear infinite;
+}
+
+.search-pulse-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.search-pulse-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+@keyframes pulse-sheen {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 .data {
   width: 100%;
   border-collapse: collapse;
@@ -714,10 +834,15 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .resort-wave,
   .palm-fronds,
+  .palm,
   .resort-haze,
   .topbar,
   .hero-stage,
-  .section {
+  .section,
+  .search-pulse-fill-live,
+  .page.is-searching .palm-left,
+  .page.is-searching .palm-mid,
+  .page.is-searching .palm-right {
     animation: none;
   }
 }

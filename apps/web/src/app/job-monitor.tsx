@@ -45,14 +45,34 @@ function statusLabel(status: string) {
   return STATUS_RU[status] || status;
 }
 
+function progressPercent(job: ActiveJob, now: number): number {
+  if (job.status === "awaiting_human" || job.status === "done") return 100;
+  if (job.status === "failed") return 100;
+  if (job.status === "queued") return 8;
+  const started = Date.parse(job.startedAt || job.createdAt);
+  const mins = Math.max(0, (now - started) / 60_000);
+  // Asymptote toward ~88% while running — real completion is awaiting_human.
+  return Math.min(88, 18 + mins * 10);
+}
+
+function setPageSearching(on: boolean) {
+  const page = document.querySelector(".page");
+  if (!page) return;
+  page.classList.toggle("is-searching", on);
+}
+
 export function JobMonitor({
   initialActive = false,
+  variant = "full",
 }: {
   initialActive?: boolean;
+  /** compact = home progress; full = system log + details */
+  variant?: "compact" | "full";
 }) {
   const [data, setData] = useState<Payload | null>(null);
   const [busyCancel, setBusyCancel] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
     try {
@@ -75,6 +95,20 @@ export function JobMonitor({
     return () => window.clearInterval(id);
   }, [refresh]);
 
+  useEffect(() => {
+    const searching =
+      data?.active?.status === "queued" || data?.active?.status === "running";
+    setPageSearching(Boolean(searching || (initialActive && !data)));
+    return () => setPageSearching(false);
+  }, [data, initialActive]);
+
+  useEffect(() => {
+    if (variant !== "compact") return;
+    if (!data?.active || data.active.status !== "running") return;
+    const id = window.setInterval(() => setNow(Date.now()), 2000);
+    return () => window.clearInterval(id);
+  }, [variant, data?.active]);
+
   async function cancelJob(jobId: string) {
     if (!window.confirm("Отменить текущий поиск?")) return;
     setBusyCancel(true);
@@ -88,8 +122,71 @@ export function JobMonitor({
   }
 
   const active = data?.active;
-  const showIdle = !active && !initialActive && data;
 
+  if (variant === "compact") {
+    if (error) {
+      return (
+        <div className="search-pulse search-pulse-error" id="job-status">
+          <p>{error}</p>
+        </div>
+      );
+    }
+
+    if (!active) {
+      if (data && data.pendingOffers > 0) {
+        return (
+          <p className="search-pulse-idle" id="job-status">
+            Есть кандидаты:{" "}
+            <Link href="/admin/offers">{data.pendingOffers} на проверку</Link>
+          </p>
+        );
+      }
+      return null;
+    }
+
+    const pct = progressPercent(active, now);
+    const label =
+      active.status === "awaiting_human"
+        ? "Готово — проверьте офферы"
+        : active.status === "queued"
+          ? "Очередь…"
+          : "Ищем туры…";
+
+    return (
+      <div className="search-pulse" id="job-status">
+        <div className="search-pulse-track" aria-hidden="true">
+          <div
+            className={`search-pulse-fill${active.status === "running" ? " search-pulse-fill-live" : ""}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className="search-pulse-row">
+          <span>{label}</span>
+          <div className="search-pulse-actions">
+            {active.status === "awaiting_human" ? (
+              <Link className="btn btn-primary" href="/admin/offers">
+                Офферы
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="btn"
+                disabled={busyCancel}
+                onClick={() => void cancelJob(active.id)}
+              >
+                {busyCancel ? "…" : "Стоп"}
+              </button>
+            )}
+            <Link className="nav-link" href="/admin/system">
+              Лог
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* —— full (Система) —— */
   if (error) {
     return (
       <div className="job-monitor job-monitor-error">
@@ -110,19 +207,16 @@ export function JobMonitor({
 
   if (!active) {
     return (
-      <div className={`job-monitor ${showIdle ? "job-monitor-idle" : ""}`}>
+      <div className="job-monitor job-monitor-idle">
         <strong>Статус поиска</strong>
         <p>
           Сейчас ничего не ищется.
           {data.pendingOffers > 0 ? (
             <>
               {" "}
-              Есть кандидаты на проверку:{" "}
-              <Link href="/admin/offers">{data.pendingOffers}</Link>.
+              Есть кандидаты: <Link href="/admin/offers">{data.pendingOffers}</Link>.
             </>
-          ) : (
-            " Запустите форму ниже."
-          )}
+          ) : null}
         </p>
       </div>
     );
@@ -136,10 +230,6 @@ export function JobMonitor({
         <strong>Идёт поиск</strong>
         <span className="job-pill">{statusLabel(active.status)}</span>
       </div>
-      <p>
-        Агент Cursor сейчас ищет туры и будет писать кандидатов в «Офферы». Это может
-        занять несколько минут. Пока задача активна, новый поиск не стартует.
-      </p>
       <ul className="job-meta">
         <li>
           Job: <code>{active.id}</code>
@@ -152,29 +242,22 @@ export function JobMonitor({
             {req.childrenAges ? ` + дети ${req.childrenAges}` : ""}
           </li>
         ) : null}
-        <li>
-          Кандидатов по этому запросу: {active.pendingForRequest ?? 0}
-          {data.pendingOffers > 0 ? (
-            <>
-              {" "}
-              · всего pending: <Link href="/admin/offers">{data.pendingOffers}</Link>
-            </>
-          ) : null}
-        </li>
+        <li>Кандидатов: {active.pendingForRequest ?? 0}</li>
+        {active.error ? <li className="muted">{active.error}</li> : null}
       </ul>
       {active.prompt ? (
-        <details className="job-log">
+        <details className="job-log" open>
           <summary>Промпт агента</summary>
           <pre>{active.prompt}</pre>
         </details>
       ) : null}
       {active.logTail ? (
-        <details className="job-log">
-          <summary>Лог агента (хвост)</summary>
+        <details className="job-log" open>
+          <summary>Лог агента</summary>
           <pre>{active.logTail}</pre>
         </details>
       ) : (
-        <p className="muted">Лог ещё не появился — агент только стартует или не пишет файл.</p>
+        <p className="muted">Лог ещё не появился.</p>
       )}
       <div className="job-actions">
         <button
@@ -186,7 +269,7 @@ export function JobMonitor({
           {busyCancel ? "Отмена…" : "Отменить поиск"}
         </button>
         <Link className="btn" href="/admin/offers">
-          Открыть офферы
+          Офферы
         </Link>
       </div>
     </div>

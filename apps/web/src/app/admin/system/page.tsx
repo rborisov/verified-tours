@@ -48,7 +48,7 @@ export default async function AdminSystemPage() {
 
         <section className="section">
           <h2>Сейчас</h2>
-          <JobMonitor />
+          <JobMonitor variant="full" />
         </section>
 
         <section className="section">
