@@ -6,6 +6,7 @@ import { SiteHeader } from "@/app/site-header";
 import { requireAdmin } from "@/lib/require-admin";
 import { collectSystemMetrics } from "@/lib/system-metrics";
 import { prisma } from "@/lib/db";
+import { CachePanel } from "./cache-panel";
 
 function fmtBytes(n: number) {
   if (n < 1024) return `${n} B`;
@@ -79,6 +80,11 @@ export default async function AdminSystemPage() {
             </li>
             <li>CURSOR_API_KEY: {metrics.apiKeyConfigured ? "есть" : "нет"}</li>
           </ul>
+        </section>
+
+        <section className="section">
+          <h2>Кэш офферов и отклонения</h2>
+          <CachePanel />
         </section>
 
         <section className="section">
