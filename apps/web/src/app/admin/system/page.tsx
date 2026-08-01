@@ -47,7 +47,10 @@ export default async function AdminSystemPage() {
         </section>
 
         <section className="section">
-          <h2>Сейчас</h2>
+          <h2>Поиск: статус, промпт, лог</h2>
+          <p className="section-lead">
+            Доступно и после завершения — выберите job в списке, чтобы разобрать промпт и лог.
+          </p>
           <JobMonitor variant="full" />
         </section>
 
@@ -79,7 +82,7 @@ export default async function AdminSystemPage() {
         </section>
 
         <section className="section">
-          <h2>Последние jobs</h2>
+          <h2>Краткая история</h2>
           {recentJobs.length === 0 ? (
             <p className="muted">Пока не было запусков.</p>
           ) : (

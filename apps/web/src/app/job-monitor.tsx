@@ -16,23 +16,39 @@ type JobRequest = {
   departTo: string;
 };
 
-type ActiveJob = {
+type JobView = {
   id: string;
   status: string;
   error: string | null;
   pid: number | null;
   createdAt: string;
   startedAt: string | null;
+  finishedAt?: string | null;
   request: JobRequest | null;
   pendingForRequest?: number;
   logTail?: string | null;
   prompt?: string | null;
+  hasPrompt?: boolean;
+  hasLog?: boolean;
+  live?: boolean;
+};
+
+type RecentJob = {
+  id: string;
+  status: string;
+  createdAt: string;
+  error: string | null;
+  request: JobRequest | null;
+  hasPrompt: boolean;
+  hasLog: boolean;
 };
 
 type Payload = {
   ok: boolean;
-  active: ActiveJob | null;
+  active: JobView | null;
+  focus: JobView | null;
   pendingOffers: number;
+  recent: RecentJob[];
 };
 
 const STATUS_RU: Record<string, string> = {
@@ -47,13 +63,12 @@ function statusLabel(status: string) {
   return STATUS_RU[status] || status;
 }
 
-function progressPercent(job: ActiveJob, now: number): number {
+function progressPercent(job: JobView, now: number): number {
   if (job.status === "awaiting_human" || job.status === "done") return 100;
   if (job.status === "failed") return 100;
   if (job.status === "queued") return 8;
   const started = Date.parse(job.startedAt || job.createdAt);
   const mins = Math.max(0, (now - started) / 60_000);
-  // Asymptote toward ~88% while running — real completion is awaiting_human.
   return Math.min(88, 18 + mins * 10);
 }
 
@@ -61,6 +76,10 @@ function setPageSearching(on: boolean) {
   const page = document.querySelector(".page");
   if (!page) return;
   page.classList.toggle("is-searching", on);
+}
+
+function shortWhen(iso: string) {
+  return iso.replace("T", " ").slice(0, 16);
 }
 
 export function JobMonitor({
@@ -72,13 +91,15 @@ export function JobMonitor({
   variant?: "compact" | "full";
 }) {
   const [data, setData] = useState<Payload | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyCancel, setBusyCancel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (jobId: string | null = selectedId) => {
     try {
-      const res = await fetch("/api/admin/jobs", { cache: "no-store" });
+      const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
+      const res = await fetch(`/api/admin/jobs${qs}`, { cache: "no-store" });
       const json = (await res.json()) as Payload & { error?: string };
       if (!res.ok) {
         setError(json.error || `Ошибка ${res.status}`);
@@ -89,18 +110,21 @@ export function JobMonitor({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось обновить статус");
     }
-  }, []);
+  }, [selectedId]);
 
   useEffect(() => {
-    void refresh();
-    const id = window.setInterval(() => void refresh(), 4000);
-    const onStarted = () => void refresh();
+    void refresh(selectedId);
+    const id = window.setInterval(() => void refresh(selectedId), 4000);
+    const onStarted = () => {
+      setSelectedId(null);
+      void refresh(null);
+    };
     window.addEventListener(JOB_STARTED_EVENT, onStarted);
     return () => {
       window.clearInterval(id);
       window.removeEventListener(JOB_STARTED_EVENT, onStarted);
     };
-  }, [refresh]);
+  }, [refresh, selectedId]);
 
   useEffect(() => {
     const searching =
@@ -145,6 +169,17 @@ export function JobMonitor({
           <p className="search-pulse-idle" id="job-status">
             Есть кандидаты:{" "}
             <Link href="/admin/offers">{data.pendingOffers} на проверку</Link>
+            {" · "}
+            <Link href="/admin/system">лог / промпт</Link>
+          </p>
+        );
+      }
+      if (data?.focus) {
+        return (
+          <p className="search-pulse-idle" id="job-status">
+            Последний поиск: {statusLabel(data.focus.status)}
+            {" · "}
+            <Link href="/admin/system">лог / промпт</Link>
           </p>
         );
       }
@@ -212,35 +247,36 @@ export function JobMonitor({
     );
   }
 
-  if (!active) {
+  const focus = data.focus;
+  const recent = data.recent ?? [];
+
+  if (!focus) {
     return (
       <div className="job-monitor job-monitor-idle">
         <strong>Статус поиска</strong>
-        <p>
-          Сейчас ничего не ищется.
-          {data.pendingOffers > 0 ? (
-            <>
-              {" "}
-              Есть кандидаты: <Link href="/admin/offers">{data.pendingOffers}</Link>.
-            </>
-          ) : null}
-        </p>
+        <p>Пока не было запусков.</p>
       </div>
     );
   }
 
-  const req = active.request;
+  const req = focus.request;
+  const live = Boolean(focus.live);
 
   return (
-    <div className="job-monitor job-monitor-active" id="job-status">
+    <div
+      className={`job-monitor ${live ? "job-monitor-active" : "job-monitor-idle"}`}
+      id="job-status"
+    >
       <div className="job-monitor-head">
-        <strong>Идёт поиск</strong>
-        <span className="job-pill">{statusLabel(active.status)}</span>
+        <strong>{live ? "Идёт поиск" : "Последний поиск"}</strong>
+        <span className="job-pill">{statusLabel(focus.status)}</span>
       </div>
       <ul className="job-meta">
         <li>
-          Job: <code>{active.id}</code>
-          {active.pid ? ` · pid ${active.pid}` : null}
+          Job: <code>{focus.id}</code>
+          {focus.pid && live ? ` · pid ${focus.pid}` : null}
+          {" · "}
+          {shortWhen(focus.createdAt)}
         </li>
         {req ? (
           <li>
@@ -249,35 +285,78 @@ export function JobMonitor({
             {req.childrenAges ? ` + дети ${req.childrenAges}` : ""}
           </li>
         ) : null}
-        <li>Кандидатов: {active.pendingForRequest ?? 0}</li>
-        {active.error ? <li className="muted">{active.error}</li> : null}
+        <li>Кандидатов: {focus.pendingForRequest ?? 0}</li>
+        {focus.error ? <li className="muted">{focus.error}</li> : null}
       </ul>
-      {active.prompt ? (
-        <details className="job-log" open>
-          <summary>Промпт агента</summary>
-          <pre>{active.prompt}</pre>
-        </details>
+
+      {recent.length > 1 ? (
+        <div className="job-recent">
+          <p className="muted job-recent-label">Недавние jobs — выберите, чтобы открыть лог/промпт:</p>
+          <ul className="job-recent-list">
+            {recent.map((job) => {
+              const selected = job.id === focus.id;
+              return (
+                <li key={job.id}>
+                  <button
+                    type="button"
+                    className={`job-recent-btn${selected ? " is-selected" : ""}`}
+                    onClick={() => setSelectedId(job.id)}
+                  >
+                    <span>{statusLabel(job.status)}</span>
+                    <span className="muted">{shortWhen(job.createdAt)}</span>
+                    <span className="muted">
+                      {job.request
+                        ? `${job.request.fromCity} → ${job.request.countries}`
+                        : job.id.slice(0, 8)}
+                    </span>
+                    <span className="muted">
+                      {[job.hasPrompt ? "промпт" : null, job.hasLog ? "лог" : null]
+                        .filter(Boolean)
+                        .join(" · ") || "нет файлов"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : null}
-      {active.logTail ? (
-        <details className="job-log" open>
-          <summary>Лог агента</summary>
-          <pre>{active.logTail}</pre>
+
+      {focus.prompt ? (
+        <details className="job-log" open={!live}>
+          <summary>Промпт агента</summary>
+          <pre>{focus.prompt}</pre>
         </details>
       ) : (
-        <p className="muted">Лог ещё не появился.</p>
+        <p className="muted">Промпт недоступен для этого job.</p>
+      )}
+      {focus.logTail ? (
+        <details className="job-log" open>
+          <summary>Лог агента{live ? " (обновляется)" : ""}</summary>
+          <pre>{focus.logTail}</pre>
+        </details>
+      ) : (
+        <p className="muted">
+          {live ? "Лог ещё не появился." : "Лог не найден (файл удалён при очистке диска?)."}
+        </p>
       )}
       <div className="job-actions">
-        <button
-          type="button"
-          className="btn"
-          disabled={busyCancel}
-          onClick={() => void cancelJob(active.id)}
-        >
-          {busyCancel ? "Отмена…" : "Отменить поиск"}
-        </button>
+        {live ? (
+          <button
+            type="button"
+            className="btn"
+            disabled={busyCancel}
+            onClick={() => void cancelJob(focus.id)}
+          >
+            {busyCancel ? "Отмена…" : "Отменить поиск"}
+          </button>
+        ) : null}
         <Link className="btn" href="/admin/offers">
           Офферы
         </Link>
+        {data.pendingOffers > 0 ? (
+          <span className="muted">ждут проверки: {data.pendingOffers}</span>
+        ) : null}
       </div>
     </div>
   );
