@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { JOB_STARTED_EVENT } from "./search-events";
+
 type JobRequest = {
   id: string;
   status: string;
@@ -92,7 +94,12 @@ export function JobMonitor({
   useEffect(() => {
     void refresh();
     const id = window.setInterval(() => void refresh(), 4000);
-    return () => window.clearInterval(id);
+    const onStarted = () => void refresh();
+    window.addEventListener(JOB_STARTED_EVENT, onStarted);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener(JOB_STARTED_EVENT, onStarted);
+    };
   }, [refresh]);
 
   useEffect(() => {
