@@ -37,7 +37,7 @@ function createServer(): McpServer {
     "lookup_verified_offers",
     {
       description:
-        "Look up previously verified offers and rejected fingerprints matching the brief. Call this BEFORE searching OTAs.",
+        "Look up previously verified offers and rejected fingerprints matching the brief (RU traveler, departure from Russia). Call this BEFORE searching Russian OTAs.",
       inputSchema: {
         fromCity: z.string().min(1),
         countries: z.string().optional(),
@@ -65,7 +65,7 @@ function createServer(): McpServer {
     "submit_offer_candidate",
     {
       description:
-        "Submit an L2/L3-verified BOOKABLE package offer for human confirmation. deepLink MUST be the buy/book offer page (city+dates+price visible), never a search list or hotel brochure. SaleTur list/brochure URLs are rejected. Prefer Level.Travel / Travelata / Onlinetours. Also rejects listing vs page price drift >15%.",
+        "Submit an L2/L3 BOOKABLE package from a Russian OTA (Level.Travel, Travelata, Onlinetours only) for human confirmation. deepLink MUST be the buy/book page (вылет, dates, ₽ price, Купить/Забронировать). Never search lists or hotel brochures. SaleTur rejected. Listing vs page price drift >15% rejected. Traveler is RF citizen departing from Russia.",
       inputSchema: {
         jobId: z.string().min(1),
         requestId: z.string().optional(),
@@ -78,7 +78,7 @@ function createServer(): McpServer {
           .string()
           .url()
           .describe(
-            "URL of the bookable offer/checkout page (city, dates, price, buy). Not a search list or brochure.",
+            "URL of the Russian OTA bookable offer/checkout page (вылет, dates, ₽, Купить). Not a search list or brochure.",
           ),
         fromCity: z.string().min(1),
         startDate: z.string().min(1),

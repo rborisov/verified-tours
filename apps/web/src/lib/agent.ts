@@ -180,40 +180,62 @@ export function buildTourSearchPrompt(input: {
   preferHot: boolean;
   rawBrief?: string | null;
 }): string {
+  const childrenLine = input.childrenAges.trim()
+    ? input.childrenAges.trim()
+    : "(нет — только взрослые)";
+  const rawBriefBlock = input.rawBrief?.trim()
+    ? `\nДоп. пожелания клиента:\n${input.rawBrief.trim()}\n`
+    : "";
+
   return `MODE: nofaketours
-Mission: find REAL bookable package tours. deepLink must open a page where a human can see departure city, dates, party, flight+hotel price AND start booking — not a search list, not a hotel brochure.
+Контекст: клиент — гражданин РФ, вылет ТОЛЬКО из России (город вылета ниже). Ищи пакетные туры (авиа + отель) у российских туроператоров/OTA. Цены в ₽. Интерфейсы сайтов — на русском («Купить», «Забронировать», «Вылет из», «ночей»).
+
+Миссия: найти РЕАЛЬНЫЕ бронируемые пакетные туры. deepLink — URL страницы, где видны город вылета, даты, состав туристов, цена «перелёт+отель» И кнопка покупки/бронирования. Не поисковая выдача, не сетка отелей, не брошюра отеля.
 
 jobId: ${input.jobId}
 requestId: ${input.requestId}
 
-adults: ${input.adults}
-children ages: ${input.childrenAges || "(none)"}
-from: ${input.fromCity}
-prefer countries: ${input.countries}
-depart: ${input.departFrom} through ${input.departTo}
-nights: ${input.nightsMin}..${input.nightsMax}
-sea: ${input.seaRequired ? "yes" : "no"}
-visa free only: ${input.visaFreeOnly ? "yes" : "no"}
-prefer last-minute/discount badge: ${input.preferHot ? "yes" : "no"}
-${input.rawBrief ? `raw brief:\\n${input.rawBrief}\\n` : ""}
+взрослые: ${input.adults}
+дети (возраст): ${childrenLine}
+город вылета: ${input.fromCity}
+страны (приоритет): ${input.countries}
+даты вылета: ${input.departFrom} … ${input.departTo}
+ночей: ${input.nightsMin}..${input.nightsMax}
+море/пляж: ${input.seaRequired ? "обязательно" : "не обязательно"}
+без визы / упрощённый въезд для граждан РФ: ${input.visaFreeOnly ? "только такие направления" : "можно с визой"}
+горящие/скидка: ${input.preferHot ? "желательно" : "не важно"}
+${rawBriefBlock}
+Разрешённые OTA (только российские; в таком порядке):
+1) Level.Travel — https://level.travel
+2) Travelata — https://travelata.ru
+3) Onlinetours — https://www.onlinetours.ru
+Запрещено: Booking, Expedia, Kayak, Google Hotels, Skyscanner, TripAdvisor и любые не-РФ агрегаторы; не подменяй пакет отельным-only бронированием.
+SaleTur (saletur.ru) — НЕ использовать: списки и /hotel/*.htm брошюры API отклонит.
 
-MUST:
-1) Call MCP lookup_verified_offers first (reuse verified; avoid rejected fingerprints).
-2) Prefer Level.Travel, Travelata, Onlinetours (stable offer/checkout URLs). Avoid SaleTur search/lists.
-3) Use browser: search → click a concrete offer → keep navigating until the BOOKING/offer page shows city+dates+price+buy/book.
-4) Copy the URL FROM THAT BOOKABLE PAGE (address bar after navigation). That is deepLink.
-5) Confirm fromCity matches "${input.fromCity}" (or reject). Confirm dates/nights/party. Compare listing vs page price; drift >15% → mark_offer_rejected_auto.
-6) submit_offer_candidate only with bookable deepLink + autoNotes quoting city, dates, price seen on page. Max 5.
-7) finish_search_job when done (awaiting_human if candidates exist).
+Уровни autoLevel (обязательно при submit):
+- L3: открыта страница бронирования/оффера; город вылета, даты, ночи, состав совпали; цена скопирована с ЭТОЙ страницы; видна «Купить»/«Забронировать».
+- L2: страница бронируемая, но есть мелкая неуверенность (бейдж «море», виза, «горящий» не подтверждены явно) — укажи в autoNotes.
+- L1: НЕ отправляй через submit. Либо продолжай поиск, либо mark_offer_rejected_auto.
 
-deepLink REJECTED by API if:
-- search/results list (e.g. saletur.ru/Турция/#&query=…)
-- hotel brochure without bookable offer (e.g. saletur …/hotel/Name.htm)
-- /search paths without a selected offer
+Плейбук (browser):
+A) Сначала MCP lookup_verified_offers с fromCity="${input.fromCity}" и странами из брифа.
+   - Если есть свежие verified под бриф — можешь закончить раньше (finish awaiting_human), не дублируя те же fingerprint.
+   - Отклонённые fingerprint не предлагай снова.
+B) Открой OTA из списка по порядку. Выстави фильтры: вылет из «${input.fromCity}» (или явный синоним: Нижний Новгород↔Н.Новгород↔GOJ; Москва↔MOW; СПб↔LED и т.п.), страны, даты в окне, ночи ${input.nightsMin}–${input.nightsMax}, взрослые=${input.adults}, дети с указанными возрастами.
+C) В выдаче кликни КОНКРЕТНЫЙ пакет → листай, пока не откроется карточка/checkout с городом вылета, датами, ценой и «Купить»/«Забронировать».
+D) deepLink = URL из адресной строки ИМЕННО этой страницы (после навигации), не URL выдачи.
+E) Сверь: вылет ≈ «${input.fromCity}»; даты в окне; ночи в диапазоне; состав совпал; есть перелёт (иначе reject-auto). Листинг vs страница: расхождение цены >15% → mark_offer_rejected_auto.
+F) submit_offer_candidate только L2/L3 + autoNotes с цитатой: город, даты, ночи, цена ₽, что увидел на странице. source = имя OTA (Level.Travel / Travelata / Onlinetours). Макс. 5 офферов: разные отели, приоритет запрошенным странам, при прочих равных — дешевле / с «горящим» если preferHot.
+G) Если submit вернул 422 — прочитай error, углубись до bookable URL или смени отель/OTA; не finish сразу.
+H) Если OTA прячет bookable URL / капча / нет вылета из нужного города — пропусти OTA, не выдумывай URL списка.
+I) finish_search_job: awaiting_human если есть кандидаты; failed + error если ни одного bookable после всех OTA.
 
-GOOD examples (shape): Level.Travel hotel/offer URL that still shows package price & departure; Travelata tour offer page with «Купить».
-BAD: any URL that only shows a grid of hotels with no single selectable bookable package.
+Примеры формы deepLink (ориентиры, не копируй слепо):
+- GOOD: level.travel страница отеля/пакета, где видны вылет, даты, цена пакета и покупка
+- GOOD: travelata.ru страница тура с «Купить» и параметрами вылета
+- GOOD: onlinetours.ru карточка конкретного тура/пакета к оформлению
+- BAD: */search*, сетка отелей, saletur.ru/Турция/#&query=…, saletur …/hotel/Name.htm, страница без цены/кнопки покупки
 
-If an OTA hides the bookable URL from you, skip that OTA — do not invent or submit the list URL.
-Human verifies every candidate in admin via deepLink.`;
+Море/виза/горящий: если в брифе обязательно — проверь по тексту страницы или reject-auto / не сабмить. Если неясно при L2 — напиши «unknown: …» в autoNotes.
+Человек в админке откроет каждый deepLink и подтвердит.`;
 }
