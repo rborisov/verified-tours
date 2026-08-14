@@ -1042,6 +1042,7 @@ for name in ("cli-config.json", "sandbox.json"):
     path.write_text(json.dumps(drop_vt_strings(cfg), indent=2) + "\n")
     print("cleaned", path)
 PY
+  || log "cursor json cleanup failed (non-fatal)"
 }
 
 uninstall_verified_tours() {
