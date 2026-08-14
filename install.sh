@@ -1003,7 +1003,8 @@ strip_verified_tours_from_cursor_json() {
     log "python3 not found — skip ~/.cursor MCP/cli cleanup"
     return 0
   fi
-  python3 - <<'PY' || log "cursor json cleanup failed (non-fatal)"
+  set +e
+  python3 - <<'PY'
 from pathlib import Path
 import json
 
@@ -1042,6 +1043,7 @@ for name in ("cli-config.json", "sandbox.json"):
     path.write_text(json.dumps(drop_vt_strings(cfg), indent=2) + "\n")
     print("cleaned", path)
 PY
+  set -e
 }
 
 uninstall_verified_tours() {
