@@ -81,6 +81,14 @@ curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/instal
 - Same personal `CURSOR_API_KEY` in both `.env` files.
 - MCP merge: installer keeps `news-digest` entries in `~/.cursor/mcp.json`.
 
+Uninstall (removes this app only; newsdigest / nginx / Node / Cursor CLI stay):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash -s -- uninstall
+# non-interactive:
+curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash -s -- uninstall --yes
+```
+
 ## Disk alerts
 
 Worker cron (default hourly) checks used %. Above `DISK_ALERT_USED_PCT` posts to `DISK_ALERT_WEBHOOK_URL` and stores `DiskAlert` (cooldown `DISK_ALERT_COOLDOWN_HOURS`).
