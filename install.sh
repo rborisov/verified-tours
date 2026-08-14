@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # VPS installer — host Node.js + systemd (no Docker). Suitable for 1 GB RAM with swap.
+#
+#   curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash -s -- uninstall
+#   bash install.sh uninstall --yes
+#
 set -euo pipefail
 
 INSTALL_ROOT=/opt/verified-tours
@@ -40,6 +45,7 @@ NEXTAUTH_URL=""
 NEXTAUTH_SECRET=""
 INTERNAL_API_KEY=""
 RECONFIGURE=0
+UNINSTALL_YES=0
 
 log()  { printf '==> %s\n' "$*"; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -989,6 +995,128 @@ finish_marker() {
   log "Done. Portal: https://${DOMAIN}"
   log "Logs: journalctl -u verified-tours-web -f"
   log "Re-run this script anytime to update."
+  log "Uninstall: curl -fsSL ${REPO_URL%.git}/raw/main/install.sh | bash -s -- uninstall"
+}
+
+strip_verified_tours_from_cursor_json() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    log "python3 not found — skip ~/.cursor MCP/cli cleanup"
+    return 0
+  fi
+  python3 <<'PY'
+from pathlib import Path
+import json
+
+def drop_vt_strings(obj):
+    if isinstance(obj, list):
+        out = []
+        for item in obj:
+            if isinstance(item, str) and "verified-tours" in item:
+                continue
+            out.append(drop_vt_strings(item))
+        return out
+    if isinstance(obj, dict):
+        return {k: drop_vt_strings(v) for k, v in obj.items()}
+    return obj
+
+mcp_path = Path("/root/.cursor/mcp.json")
+if mcp_path.is_file():
+    try:
+        data = json.loads(mcp_path.read_text())
+    except Exception:
+        data = {}
+    servers = data.get("mcpServers") if isinstance(data.get("mcpServers"), dict) else {}
+    servers.pop("verified-tours", None)
+    data["mcpServers"] = servers
+    mcp_path.write_text(json.dumps(data, indent=2) + "\n")
+    print("mcp.json servers:", ", ".join(servers) or "(none)")
+
+for name in ("cli-config.json", "sandbox.json"):
+    path = Path("/root/.cursor") / name
+    if not path.is_file():
+        continue
+    try:
+        cfg = json.loads(path.read_text())
+    except Exception:
+        continue
+    path.write_text(json.dumps(drop_vt_strings(cfg), indent=2) + "\n")
+    print("cleaned", path)
+PY
+}
+
+uninstall_verified_tours() {
+  require_root
+  log "Uninstalling verified-tours (newsdigest, nginx, Node, Cursor CLI stay)"
+
+  local domain=""
+  if [[ -f "${INSTALL_DOMAIN_FILE}" ]]; then
+    domain="$(tr -d '[:space:]' < "${INSTALL_DOMAIN_FILE}" || true)"
+  fi
+  if [[ -z "${domain}" && -f "${INSTALL_ROOT}/.env" ]]; then
+    # shellcheck disable=SC1091
+    set -a
+    source "${INSTALL_ROOT}/.env"
+    set +a
+    domain="${DOMAIN:-}"
+    if [[ -z "${domain}" && -n "${NEXTAUTH_URL:-}" ]]; then
+      domain="$(python3 -c 'from urllib.parse import urlparse; import os; print(urlparse(os.environ.get("NEXTAUTH_URL","")).hostname or "")' 2>/dev/null || true)"
+    fi
+  fi
+
+  if [[ "${UNINSTALL_YES}" -ne 1 ]]; then
+    local confirm=""
+    prompt confirm "This deletes /opt/verified-tours, systemd units, nginx site, MCP entry, and the tours TLS cert. Type uninstall to confirm" ""
+    [[ "${confirm}" == "uninstall" ]] || die "Aborted."
+  fi
+
+  log "Stopping systemd services"
+  systemctl disable --now verified-tours-web verified-tours-worker 2>/dev/null || true
+  systemctl stop verified-tours-web.service verified-tours-worker.service 2>/dev/null || true
+  rm -f "${WEB_UNIT}" "${WORKER_UNIT}"
+  systemctl daemon-reload
+  systemctl reset-failed verified-tours-web.service verified-tours-worker.service 2>/dev/null || true
+
+  if [[ -f "${NGINX_SITE}" || -L /etc/nginx/sites-enabled/verified-tours ]]; then
+    log "Removing nginx site"
+    rm -f /etc/nginx/sites-enabled/verified-tours "${NGINX_SITE}"
+    if command -v nginx >/dev/null 2>&1; then
+      nginx -t && systemctl reload nginx || log "nginx reload skipped (check nginx -t)"
+    fi
+  fi
+
+  if [[ -n "${domain}" ]] && command -v certbot >/dev/null 2>&1; then
+    if certbot certificates 2>/dev/null | grep -q "Certificate Name: ${domain}"; then
+      log "Deleting Let's Encrypt certificate for ${domain}"
+      certbot delete --cert-name "${domain}" --non-interactive || true
+    else
+      log "No certbot certificate named ${domain} — skip"
+    fi
+  fi
+
+  if command -v agent >/dev/null 2>&1; then
+    agent mcp disable verified-tours >/dev/null 2>&1 || true
+  fi
+  strip_verified_tours_from_cursor_json
+
+  log "Removing ${INSTALL_ROOT} and ${BUILD_ROOT}"
+  rm -rf "${INSTALL_ROOT}" "${BUILD_ROOT}"
+
+  log "Left in place: ${SIBLING_INSTALL_ROOT}, nginx, Node, Cursor CLI, /var/lock/cursor-agent.lock"
+  log "verified-tours uninstalled."
+}
+
+usage() {
+  cat <<'EOF'
+Usage: install.sh [install|uninstall] [--yes]
+
+  (default)   Install or update verified-tours on this host.
+  uninstall   Remove verified-tours completely. Keeps newsdigest, nginx, Node, Cursor CLI.
+  --yes       Skip uninstall confirmation (for curl | bash -s -- uninstall --yes).
+
+Examples:
+  curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/rborisov/verified-tours/main/install.sh | bash -s -- uninstall
+EOF
 }
 
 # Keep AGENT_WORKSPACE current on updates without full reconfigure.
@@ -1021,6 +1149,34 @@ stop_host_services() {
 }
 
 main() {
+  local mode=install
+  local arg
+  for arg in "$@"; do
+    case "${arg}" in
+      uninstall|--uninstall)
+        mode=uninstall
+        ;;
+      --yes|-y)
+        UNINSTALL_YES=1
+        ;;
+      -h|--help|help)
+        usage
+        exit 0
+        ;;
+      install|update)
+        mode=install
+        ;;
+      *)
+        die "Unknown argument: ${arg} (try --help)"
+        ;;
+    esac
+  done
+
+  if [[ "${mode}" == "uninstall" ]]; then
+    uninstall_verified_tours
+    return
+  fi
+
   require_root
   require_ubuntu
   install_packages
